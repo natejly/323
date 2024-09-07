@@ -38,9 +38,11 @@ typedef struct {
     size_t size;
     size_t capacity;
 } MacroList;
-// string struct
 
-
+enum State {PLAIN, MACRO, COMMENT, QUOTE, ESCAPE, NEWLINE};
+// READING FUNCTIONS
+String store_input(FILE *file);
+String process_input(int argc, char *argv[]);
 // STRING FUNCTIONS
 String make_empty_string();
 String make_string(char *str);
@@ -61,8 +63,9 @@ void macro_destroy(Macro *macro);
 void list_add(MacroList *list, Macro *macro);
 void list_print(MacroList *list);
 void deactivate_macro(Macro *macro);
-void delete_macro(MacroList *list, char *name);
+void list_remove(MacroList *list, char *name);
 Macro *list_find(MacroList *list, char *name);
 
-// READING FUNCTIONS
-String store_input(FILE *file);
+// STATE MACHINE FUNCTIONS
+void run_state_machine(MacroList *list, String *input);
+

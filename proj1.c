@@ -171,7 +171,7 @@ Macro *list_find(MacroList *list, char *name){
     return NULL;
 }
 
-void delete_macro(MacroList *list, char *name){
+void list_remove(MacroList *list, char *name){
     Macro *current = list->head;
     Macro *prev = NULL;
     while (current != NULL){
@@ -203,39 +203,62 @@ String store_input(FILE *file) {
     return temp;
 }
 
-int main(int argc, char *argv[]) {
-    // first we will check if we have std in vs file input 
+String process_input(int argc, char *argv[]){
+        // first we will check if we have std in vs file input 
     // and then we will put it into memoru
     //if we have no args then we will read from stdin
-    String input = make_empty_string();
+    String temp = make_empty_string();
     if (argc == 1){
-        input = store_input(stdin);
+        temp = store_input(stdin);
     }
-    // else we open all the files and append them to the string
     else {
         for (int i = 1; i<argc; i++){
             FILE *file = fopen(argv[i], "r");
             if (file == NULL){
                 DIE("Could not open file %s", argv[i]);
             }
-            String temp = store_input(file);
-            append_to_string(&input, temp.text);
-            destroy_string(&temp);
+            String temp2 = store_input(file);
+            append_to_string(&temp, temp2.text);
+            destroy_string(&temp2);
             fclose(file);
         }
     }
-    MacroList *list = list_create();
-    Macro *macro = create_macro("NAME", "VALUE");
-    list_add(list, macro);
-    Macro *macro2 = create_macro("NAME2", "VALUE2");
-    list_add(list, macro2);
+    return temp;
+}
 
-    list_print(list);
-    Macro *temp = list_find(list, "NAME");
-    if (temp != NULL){
-        printf("has value %s\n", temp->value);
+void run_state_machine(MacroList *list, String *input){
+    enum State state = PLAIN;
+    size_t i = 0;
+    while (i < input->length){
+        switch (state){
+            case PLAIN:
+                if (input->text[i] == '\\'){
+                    state = MACRO;
+                }
+                break;
+            case MACRO:
+            printf("Found a macro\n");
+            state = PLAIN;
+                break;
+            case COMMENT:
+                break;
+            case QUOTE:
+                break;
+            case ESCAPE:
+                break;
+            case NEWLINE:
+                break;
+        }
+        i++;
     }
-    print_string(&input);
-    list_destroy(list);
+}
+
+int main(int argc, char *argv[]) {
+
+    String input = process_input(argc, argv);
+
+    MacroList *list = list_create();
+
+    run_state_machine(list, &input);
     return 0;
 }
