@@ -16,6 +16,7 @@ String make_empty_string(){
     if (string.text == NULL){
         DIE("Memory allocation failed", BUFFER_SIZE);
     }
+    string.text[0] = '\0';
     return string;
 }
 
@@ -98,6 +99,19 @@ size_t capacity_string(String *str){
     return str->capacity;
 }
 
+String substring(String *str, size_t start_index, size_t end_index){
+    String substr = make_empty_string();
+
+    char temp[2];
+    temp[1] = '\0';
+    // Append characters one by one
+    for (size_t i = start_index; i < end_index; i++) {
+        temp[0] = str->text[i]; 
+        append_to_string(&substr, temp);
+    }
+
+    return substr;
+}
 // MACRO DICTRIONARY FUNCTIONS
 Macro *create_macro(char *name, char *value){
     Macro *macro = malloc(sizeof(Macro));
@@ -238,11 +252,10 @@ void run_state_machine(MacroList *list, String *input){
                 break;
             case MACRO:
             printf("Found a macro\n");
+            process_macro(list, input, i);
             state = PLAIN;
                 break;
             case COMMENT:
-                break;
-            case QUOTE:
                 break;
             case ESCAPE:
                 break;
@@ -252,12 +265,68 @@ void run_state_machine(MacroList *list, String *input){
         i++;
     }
 }
+size_t find_close_brace(String *input, size_t i){
+    int value = 1;
+    size_t index = i;
+    while (value != 0){
+        index++;
+        printf("on character %c\n", input->text[index]);
+        if (input->text[index] == '{'){
+            value++;
+        }
+        else if (input->text[index] == '}'){
+            value--;
+        }
 
+    }
+
+    return index;
+}
+
+void process_macro(MacroList *list, String *input, size_t i){
+    // find the macro name which is between the \ and the next {
+    size_t index = i;
+    while (input->text[index] != '{'){
+        index++;
+    }
+    // print i and index
+    String macro_type = substring(input, i, index);
+    // if we have a def macro 
+    if (strcmp(macro_type.text, "def") == 0){
+        printf("Found a def macro\n");
+        // index is at open brace
+        size_t open_brace1 = index;
+        size_t close_brace1 = find_close_brace(input, open_brace1);
+
+        size_t open_brace2 = close_brace1 + 1;
+        size_t close_brace2 = find_close_brace(input, open_brace2);
+        // find the macro name
+        String macro_name = substring(input, index + 1, close_brace1);
+        // find the macro value
+        String macro_value = substring(input, open_brace2 + 1, close_brace2);
+
+        // print the macro name and value
+        print_string(&macro_name);
+        print_string(&macro_value);
+        // add macro
+        Macro *macro = create_macro(macro_name.text, macro_value.text);
+        list_add(list, macro);
+        // open brace is at close brace + 1
+        // size_t open_brace2 = close_brace1 + 1;
+        // size_t close_brace2 = find_close_brace(&input, open_brace2);
+        // find the macro name
+
+
+    // create a string for the macro name
+    
+}
+}
 int main(int argc, char *argv[]) {
 
     String input = process_input(argc, argv);
-
+    String output = make_empty_string();
     MacroList *list = list_create();
+    // test subsrting
 
     run_state_machine(list, &input);
     return 0;

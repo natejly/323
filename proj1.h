@@ -39,7 +39,7 @@ typedef struct {
     size_t capacity;
 } MacroList;
 
-enum State {PLAIN, MACRO, COMMENT, QUOTE, ESCAPE, NEWLINE};
+enum State {PLAIN, MACRO, COMMENT, ESCAPE, NEWLINE};
 // READING FUNCTIONS
 String store_input(FILE *file);
 String process_input(int argc, char *argv[]);
@@ -54,6 +54,7 @@ void print_string(String *str);
 size_t length_string(String*str);
 void reverse_string(String *str);   
 bool compare_string(String *str1, String *str2);
+String substring(String *str, size_t start_index, size_t end_index);
 
 // MACRO LIST FUNCTIONS
 MacroList *list_create();
@@ -68,4 +69,6 @@ Macro *list_find(MacroList *list, char *name);
 
 // STATE MACHINE FUNCTIONS
 void run_state_machine(MacroList *list, String *input);
+void process_macro(MacroList *list, String *input, size_t i);
+size_t find_close_brace(String *input, size_t i);
 
