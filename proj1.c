@@ -257,13 +257,60 @@ String process_input(int argc, char *argv[]){
     return temp;
 }
 
-void remove_comments(String* input){
-    // takes stdin and 
+void remove_comments(String* input, String* output){
+    enum State {PLAIN, COMMENT, ESCAPE} 
+    state = PLAIN;
+    size_t i = 0;
+    char temp[2];  // Buffer to hold a single character
+    temp[1] = '\0';  // Null-terminate the string
+    while (i < input->length){
+        switch (state){
+            case PLAIN:
+                if (input->text[i] == '\\'){
+                    state = ESCAPE;
+                }
+                else if (input->text[i] == '%'){
+                    state = COMMENT;
+                } 
+                else {
+                    temp[0] = input->text[i];
+                    append(output, temp);
+                }
+                // continue reading
+                break;
+
+            case ESCAPE:
+                // re add the backslash
+                temp[0] = '\\';
+                append(output, temp);
+                state = PLAIN;
+                continue;
+
+            case COMMENT:
+                // skip characters untill newline or end of file
+                if (input->text[i] == '\n'){
+                    state = PLAIN;
+                    // step
+                    i++;
+                    // skip spaces and tabs
+                    while (input->text[i] == ' ' || input->text[i] == '\t'){
+                        i++;
+                    }
+                    //
+                    continue;
+                }
+        }
+        i++;
+        
+    }
+    // takes input and removes comments
+
 
 }
 
 void runtime(MacroList *list, String *input, String *output) {
-    enum State { PLAIN, ESCAPE, NEWLINE, MACRO } state = PLAIN;
+    enum State { PLAIN, ESCAPE, NEWLINE, MACRO } 
+    state = PLAIN;
     size_t i = 0;
     char temp[2];  // Buffer to hold a single character
     temp[1] = '\0';  // Null-terminate the string
@@ -407,8 +454,10 @@ size_t remove_def(MacroList *list, String *input, size_t index){
 int main(int argc, char *argv[]) {
     String input = process_input(argc, argv);
     String output = make_empty_string();
+    String comments_removed = make_empty_string();
+    remove_comments(&input, &comments_removed);
     MacroList *list = list_create();
-    runtime(list, &input, &output);
+    runtime(list, &comments_removed, &output);
     printf("\n _________________ \n");
     print_string(&output);    
     destroy_string(&output);

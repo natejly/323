@@ -39,7 +39,6 @@ typedef struct {
     size_t capacity;
 } MacroList;
 
-enum State {PLAIN, COMMENT, ESCAPE, NEWLINE, MACRO};
 // have to handle escape characters too
 enum Macro_State {DEF, UNDEF, COND, INC, EA, CUS};
 // READING FUNCTIONS
@@ -73,7 +72,7 @@ size_t add_def(MacroList *list, String *input, size_t index);
 size_t remove_def(MacroList *list, String *input, size_t index);
 
 // COMMENTS REMOVER
-void remove_comments(String* input);
+void remove_comments(String* input, String *output);
 
 // STATE MACHINE FUNCTIONS
 void runtime(MacroList *list, String *input, String *output);
