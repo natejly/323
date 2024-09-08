@@ -238,11 +238,13 @@ String process_input(int argc, char *argv[]){
         // first we will check if we have std in vs file input 
     // and then we will put it into memoru
     //if we have no args then we will read from stdin
-    String temp = make_empty_string();
+    String temp;
     if (argc == 1){
         temp = store_input(stdin);
     }
     else {
+        temp = make_empty_string();
+
         for (int i = 1; i<argc; i++){
             FILE *file = fopen(argv[i], "r");
             if (file == NULL){
@@ -344,11 +346,13 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i){
     // if we have a def macro 
     if (strcmp(macro_type.text, "def") == 0){
         printf("Found a def macro\n");
+        destroy_string(&macro_type);
         return add_def(list, input, index);
     }
     // create a string for the macro name
     if (strcmp(macro_type.text, "undef") == 0){
         printf("Found an undef macro\n");
+        destroy_string(&macro_type);
         return remove_def(list, input, index);
         // index is at open brace
     }
@@ -359,7 +363,10 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i){
     }
     // else it is defined and we will run state machine on the value
     append(output, temp->value);
+    destroy_string(&macro_type);
+
     return find_close_brace(input, index);
+
 
     // return index of 2nd closing brace
 }
@@ -382,6 +389,9 @@ size_t add_def(MacroList *list, String *input, size_t index){
         // add macro
         Macro *macro = create_macro(macro_name.text, macro_value.text);
         list_add(list, macro);
+        destroy_string(&macro_name); 
+        destroy_string(&macro_value);
+
         return close_brace2;
 }
 
@@ -394,6 +404,7 @@ size_t remove_def(MacroList *list, String *input, size_t index){
         print_string(&macro_name);
         // remove the macro
         list_remove(list, macro_name.text);
+        destroy_string(&macro_name);
         return close_brace1;
 }
 
@@ -401,10 +412,12 @@ int main(int argc, char *argv[]) {
     String input = process_input(argc, argv);
     String output = make_empty_string();
     MacroList *list = list_create();
-    // test subsrting
-    //"isspace and isalnum"
+
     runtime(list, &input, &output);
     printf("\n _________________ \n");
     print_string(&output);    
+    destroy_string(&output);
+    destroy_string(&input);
+    list_destroy(list);
     return 0;
 }
