@@ -40,7 +40,6 @@ typedef struct {
 } MacroList;
 
 // have to handle escape characters too
-enum Macro_State {DEF, UNDEF, COND, INC, EA, CUS};
 // READING FUNCTIONS
 String store_input(FILE *file);
 String process_input(int argc, char *argv[]);
@@ -57,6 +56,7 @@ size_t length_string(String*str);
 void reverse_string(String *str);   
 bool compare_string(String *str1, String *str2);
 String substring(String *str, size_t start_index, size_t end_index);
+void replace_hash(String *input, String *output, String *arg);
 
 // MACRO LIST FUNCTIONS
 MacroList *list_create();

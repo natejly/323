@@ -128,6 +128,25 @@ String substring(String *str, size_t start_index, size_t end_index){
 
     return substr;
 }
+
+void replace_hash(String *input, String *output, String *arg){
+    size_t i = 0;
+    while (i < input->length){
+        if (input->text[i] == '#'){
+            // append the arg
+            append(output, arg->text);  
+
+        }
+        else {
+            char temp[2];
+            temp[0] = input->text[i];
+            temp[1] = '\0';
+            append(output, temp);
+        }
+        i++;
+
+}
+}
 // MACRO DICTRIONARY FUNCTIONS
 Macro *create_macro(char *name, char *value){
     Macro *macro = malloc(sizeof(Macro));
@@ -376,38 +395,97 @@ size_t find_close_brace(String *input, size_t i){
     return index;
 }
 
-size_t process_macro(MacroList *list, String *input, String *output, size_t i){
-    // returns where the macro ends
-    // appends to output what we should be replaceing with 
-    size_t index = i - 1;
-    while (input->text[index] != '{'){
+size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
+    enum Macro_State { DEF, UNDEF, COND, INC, EA, CUS };  // Define macro states
+    // Locate where the macro name ends (find the opening brace '{')
+    size_t index = i;
+    while (input->text[index] != '{' && input->text[index] != '\0') {
         index++;
     }
-    // print i and index
-    String macro_type = substring(input, i, index);
-    // if we have a def macro 
-    if (strcmp(macro_type.text, "def") == 0){
-        destroy_string(&macro_type);
-        return add_def(list, input, index);
+    // Check for end of string to avoid out-of-bounds access
+    if (input->text[index] == '\0') {
+        DIE("Unexpected end of input while looking for '{'", index);
     }
-    // create a string for the macro name
-    if (strcmp(macro_type.text, "undef") == 0){
-        destroy_string(&macro_type);
-        return remove_def(list, input, index);
-        // index is at open brace
-    }
-    // then we have a custon macro and we check if it is defined in macrolist
-    Macro *temp = list_find(list, macro_type.text);
-    if (temp == NULL){
-        DIE("Macro not found", 0);
-    }
-    // else it is defined and we will run state machine on the value
-    append(output, temp->value);
-    destroy_string(&macro_type);
 
-    return find_close_brace(input, index);
-    // return index of 2nd closing brace
+    // Extract the macro type name between i and index
+    String macro_type = substring(input, i, index);
+
+    // Map the macro type string to a Macro_State enum value
+    enum Macro_State state;
+    if (strcmp(macro_type.text, "def") == 0) {
+        state = DEF;
+    } else if (strcmp(macro_type.text, "undef") == 0) {
+        state = UNDEF;
+    } else if (strcmp(macro_type.text, "cond") == 0) {
+        state = COND;
+    } else if (strcmp(macro_type.text, "include") == 0) {
+        state = INC;
+    } else if (strcmp(macro_type.text, "expandafter") == 0) {
+        state = EA;
+    } else {
+        state = CUS;  // Assume any unrecognized macro is a custom macro
+    }
+
+    // Switch statement based on the mapped Macro_State
+    switch (state) {
+        case DEF:
+            destroy_string(&macro_type);
+            return add_def(list, input, index);  // Handles 'def' macro addition
+
+        case UNDEF:
+            destroy_string(&macro_type);
+            return remove_def(list, input, index);  // Handles 'undef' macro removal
+
+        case COND:
+            destroy_string(&macro_type);
+            return find_close_brace(input, index);  // Skips 'cond' section
+
+        case INC:
+            destroy_string(&macro_type);
+            return find_close_brace(input, index);  // Handles 'inc'
+
+        case EA:
+            destroy_string(&macro_type);
+            return find_close_brace(input, index);  // Handles 'ea'
+
+        case CUS:
+            // Custom macro handling
+            // Print macro type for debugging purposes
+            printf("Macro type: %s\n", macro_type.text);
+            list_print(list);
+
+            // Handling a custom macro: look it up in the macro list
+            Macro *temp = list_find(list, macro_type.text);
+            if (temp == NULL) {
+                destroy_string(&macro_type);
+                DIE("Macro not found", i);
+            }
+            //we know that the macro is active
+            // now to check for args within the macro
+            size_t open_brace = index;
+            size_t close_brace = find_close_brace(input, open_brace);
+            String arg = substring(input, open_brace + 1, close_brace);
+            printf("Arg: %s\n", arg.text);
+            // Replace the macro with its value
+            String macro_value = make_empty_string();
+            replace_hash(&temp, &macro_value, &arg);
+            append(output, macro_value.text);
+            destroy_string(&macro_value);
+            destroy_string(&arg);
+            return close_brace;
+
+
+
+        default:
+            // Handle unexpected states, if necessary
+            destroy_string(&macro_type);
+            DIE("Unhandled macro state", i);
+    }
+
+    // Should never reach here; add fallback if necessary
+    return index;
 }
+
 
 size_t add_def(MacroList *list, String *input, size_t index){
     size_t open_brace1 = index;
@@ -422,8 +500,6 @@ size_t add_def(MacroList *list, String *input, size_t index){
         // add macro
         Macro *macro = create_macro(macro_name.text, macro_value.text);
         list_add(list, macro);
-        destroy_string(&macro_name); 
-        destroy_string(&macro_value);
         return close_brace2;
 }
 
@@ -451,5 +527,11 @@ int main(int argc, char *argv[]) {
     destroy_string(&input);
     destroy_string(&comments_removed);
     list_destroy(list);
+    // want to test replace_hash
+    // String input = make_string("Hello #world");
+    // String output = make_empty_string();
+    // String arg = make_string("world");
+    // replace_hash(&input, &output, &arg);
+    // print_string(&output);
     return 0;
 }
