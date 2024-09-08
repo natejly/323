@@ -106,7 +106,6 @@ bool compare_string(String *str1, String *str2){
 
 void print_string(String *str){
     printf("%s", str->text);
-
 }
 
 size_t length_string(String *str){
@@ -119,7 +118,6 @@ size_t capacity_string(String *str){
 
 String substring(String *str, size_t start_index, size_t end_index){
     String substr = make_empty_string();
-
     char temp[2];
     temp[1] = '\0';
     // Append characters one by one
@@ -259,6 +257,11 @@ String process_input(int argc, char *argv[]){
     return temp;
 }
 
+void remove_comments(String* input){
+    // takes stdin and 
+
+}
+
 void runtime(MacroList *list, String *input, String *output) {
     enum State { PLAIN, ESCAPE, NEWLINE, MACRO } state = PLAIN;
     size_t i = 0;
@@ -311,7 +314,6 @@ void runtime(MacroList *list, String *input, String *output) {
         i++;
     }
 }
-
 
 size_t find_close_brace(String *input, size_t i){
     int value = 1;
@@ -366,23 +368,18 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i){
     destroy_string(&macro_type);
 
     return find_close_brace(input, index);
-
-
     // return index of 2nd closing brace
 }
-
 
 size_t add_def(MacroList *list, String *input, size_t index){
     size_t open_brace1 = index;
         size_t close_brace1 = find_close_brace(input, open_brace1);
-
         size_t open_brace2 = close_brace1 + 1;
         size_t close_brace2 = find_close_brace(input, open_brace2);
         // find the macro name
         String macro_name = substring(input, index + 1, close_brace1);
         // find the macro value
         String macro_value = substring(input, open_brace2 + 1, close_brace2);
-
         // print the macro name and value
         print_string(&macro_name);
         print_string(&macro_value);
@@ -391,7 +388,6 @@ size_t add_def(MacroList *list, String *input, size_t index){
         list_add(list, macro);
         destroy_string(&macro_name); 
         destroy_string(&macro_value);
-
         return close_brace2;
 }
 
@@ -412,7 +408,6 @@ int main(int argc, char *argv[]) {
     String input = process_input(argc, argv);
     String output = make_empty_string();
     MacroList *list = list_create();
-
     runtime(list, &input, &output);
     printf("\n _________________ \n");
     print_string(&output);    

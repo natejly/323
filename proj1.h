@@ -72,6 +72,8 @@ Macro *list_find(MacroList *list, char *name);
 size_t add_def(MacroList *list, String *input, size_t index);
 size_t remove_def(MacroList *list, String *input, size_t index);
 
+// COMMENTS REMOVER
+void remove_comments(String* input);
 
 // STATE MACHINE FUNCTIONS
 void runtime(MacroList *list, String *input, String *output);
