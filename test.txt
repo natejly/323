@@ -1,5 +1,25 @@
-1
-2 %hello
-3
-4
-5\def{name}{value}
+% This is a full line comment
+This line should be kept, but % this part should be removed
+Line with escaped comment symbol: \% this should not be treated as a comment
+This line ends with a % and continues to the next line
+    % A comment line with leading spaces
+%Another full comment line without leading spaces
+Text after multiple empty lines
+
+
+
+This line should be kept.
+Multiple %%% symbols in a row with different placements should all start comments % after each percent.
+% Comment with a tab character after the symbol      
+%   
+%        % Multiple comments with mixed leading whitespace
+Regular text with special symbols: !@#$%^&*() should be kept
+Line with tab characters		% followed by a comment
+This line should be visible, as it's after a complex comment block ending with multiple newlines.
+
+Empty line above and a comment line after it%
+		
+        % Comment with mixed tabs and spaces
+This text should not be removed.     
+Text before an escaped newline: This should appear \% as-is.
+The final line % with a trailing comment symbol.

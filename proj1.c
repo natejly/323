@@ -184,7 +184,6 @@ void list_add(MacroList *list, Macro *macro){
 void list_print(MacroList *list){
     Macro *current = list->head;
     while (current != NULL){
-        printf("%s %s\n", current->name, current->value);
         current = current->next;
     }
 }
@@ -280,32 +279,27 @@ void remove_comments(String* input, String* output){
                 break;
 
             case ESCAPE:
-                // re add the backslash
-                temp[0] = '\\';
+                // re add the escaped
+                temp[0] = input->text[i];
                 append(output, temp);
                 state = PLAIN;
-                continue;
+                break;
 
             case COMMENT:
                 // skip characters untill newline or end of file
                 if (input->text[i] == '\n'){
-                    state = PLAIN;
                     // step
                     i++;
                     // skip spaces and tabs
                     while (input->text[i] == ' ' || input->text[i] == '\t'){
                         i++;
                     }
-                    //
+                    state = PLAIN;
                     continue;
                 }
         }
         i++;
-        
     }
-    // takes input and removes comments
-
-
 }
 
 void runtime(MacroList *list, String *input, String *output) {
@@ -329,8 +323,7 @@ void runtime(MacroList *list, String *input, String *output) {
                 break;
 
             case ESCAPE:
-                if (input->text[i] == '\\' || input->text[i] == '#' ||
-                    input->text[i] == '%' || input->text[i] == '{' || input->text[i] == '}') {
+                if (input->text[i] == '\\' || input->text[i] == '#' || input->text[i] == '{' || input->text[i] == '}') {
                     temp[0] = input->text[i];
                     append(output, temp);
                     state = PLAIN;  
@@ -357,7 +350,6 @@ void runtime(MacroList *list, String *input, String *output) {
         }
 
         // Move to the next character
-        printf("Current character is %c\n", input->text[i]);
         i++;
     }
 }
@@ -384,23 +376,21 @@ size_t find_close_brace(String *input, size_t i){
 }
 
 size_t process_macro(MacroList *list, String *input, String *output, size_t i){
-    // returns what we replace the macro with
+    // returns where the macro ends
+    // appends to output what we should be replaceing with 
     size_t index = i - 1;
     while (input->text[index] != '{'){
         index++;
     }
     // print i and index
     String macro_type = substring(input, i, index);
-    print_string(&macro_type);
     // if we have a def macro 
     if (strcmp(macro_type.text, "def") == 0){
-        printf("Found a def macro\n");
         destroy_string(&macro_type);
         return add_def(list, input, index);
     }
     // create a string for the macro name
     if (strcmp(macro_type.text, "undef") == 0){
-        printf("Found an undef macro\n");
         destroy_string(&macro_type);
         return remove_def(list, input, index);
         // index is at open brace
@@ -428,8 +418,6 @@ size_t add_def(MacroList *list, String *input, size_t index){
         // find the macro value
         String macro_value = substring(input, open_brace2 + 1, close_brace2);
         // print the macro name and value
-        print_string(&macro_name);
-        print_string(&macro_value);
         // add macro
         Macro *macro = create_macro(macro_name.text, macro_value.text);
         list_add(list, macro);
@@ -444,7 +432,6 @@ size_t remove_def(MacroList *list, String *input, size_t index){
         // find the macro name
         String macro_name = substring(input, index + 1, close_brace1);
         // print the macro name
-        print_string(&macro_name);
         // remove the macro
         list_remove(list, macro_name.text);
         destroy_string(&macro_name);
@@ -458,10 +445,10 @@ int main(int argc, char *argv[]) {
     remove_comments(&input, &comments_removed);
     MacroList *list = list_create();
     runtime(list, &comments_removed, &output);
-    printf("\n _________________ \n");
     print_string(&output);    
     destroy_string(&output);
     destroy_string(&input);
+    destroy_string(&comments_removed);
     list_destroy(list);
     return 0;
 }
