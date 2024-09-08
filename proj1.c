@@ -5,7 +5,7 @@
 #include <stdlib.h>
 // STRING FUNCTIONS
 #define INITIAL_CAPACITY 16 
-#define BUFFER_SIZE 2
+#define BUFFER_SIZE 16
 
 String make_empty_string(){
     //make string lengfth buffer size
@@ -40,12 +40,11 @@ void destroy_string(String *str){
     str->capacity = 0;
 }
 
-void append_to_string(String *str, char *other) {
+void append(String *str, char *other) {
     size_t other_length = strlen(other);
     
     // Ensure there's enough capacity
     while (str->length + other_length + 1 > str->capacity) { // +1 for null terminator
-        printf("Doubling the capacity of the string\n");
         size_t new_capacity = str->capacity * 2;
         char *new_text = DOUBLE(str->text, new_capacity);
         
@@ -62,6 +61,25 @@ void append_to_string(String *str, char *other) {
     str->length += other_length;
 }
 
+
+void concatenate(String *str, String *other){
+    // Ensure there's enough capacity
+    while (str->length + other->length + 1 > str->capacity) { // +1 for null terminator
+        size_t new_capacity = str->capacity * 2;
+        char *new_text = DOUBLE(str->text, new_capacity);
+        
+        if (new_text == NULL) {
+            DIE("Memory allocation failed", new_capacity);
+        }
+        
+        str->text = new_text;
+        str->capacity = new_capacity;
+    }
+    
+    // Append the other string to the end of the string
+    strcat(str->text, other->text);
+    str->length += other->length;
+}
 void reverse_string(String *str){
     char temp;
     int half = str->length/2;
@@ -107,7 +125,7 @@ String substring(String *str, size_t start_index, size_t end_index){
     // Append characters one by one
     for (size_t i = start_index; i < end_index; i++) {
         temp[0] = str->text[i]; 
-        append_to_string(&substr, temp);
+        append(&substr, temp);
     }
 
     return substr;
@@ -177,7 +195,6 @@ Macro *list_find(MacroList *list, char *name){
     Macro *current = list->head;
     while (current != NULL){
         if (strcmp(current->name, name) == 0){
-            printf("Found the macro %s\n", name);
             return current;
         }
         current = current->next;
@@ -212,7 +229,7 @@ String store_input(FILE *file) {
     String temp = make_empty_string();
     char buffer[BUFFER_SIZE];
     while (fgets(buffer, BUFFER_SIZE, file) != NULL) {
-        append_to_string(&temp, buffer);
+        append(&temp, buffer);
     }
     return temp;
 }
@@ -232,7 +249,7 @@ String process_input(int argc, char *argv[]){
                 DIE("Could not open file %s", argv[i]);
             }
             String temp2 = store_input(file);
-            append_to_string(&temp, temp2.text);
+            append(&temp, temp2.text);
             destroy_string(&temp2);
             fclose(file);
         }
@@ -240,37 +257,69 @@ String process_input(int argc, char *argv[]){
     return temp;
 }
 
-void run_state_machine(MacroList *list, String *input){
-    enum State state = PLAIN;
+void runtime(MacroList *list, String *input, String *output) {
+    enum State { PLAIN, ESCAPE, NEWLINE, MACRO } state = PLAIN;
     size_t i = 0;
-    while (i < input->length){
-        switch (state){
+    char temp[2];  // Buffer to hold a single character
+    temp[1] = '\0';  // Null-terminate the string
+
+    // Iterate over each character in the input string
+    while (i < input->length) {
+        switch (state) {
             case PLAIN:
-                if (input->text[i] == '\\'){
-                    state = MACRO;
+                if (input->text[i] == '\\') {
+                    state = ESCAPE;  // Switch to ESCAPE state when encountering backslash
+                } else {
+                    // Regular character; append to output
+                    temp[0] = input->text[i];
+                    append(output, temp);
                 }
                 break;
-            case MACRO:
-            printf("Found a macro\n");
-            process_macro(list, input, i);
-            state = PLAIN;
-                break;
-            case COMMENT:
-                break;
+
             case ESCAPE:
+                if (input->text[i] == '\\' || input->text[i] == '#' ||
+                    input->text[i] == '%' || input->text[i] == '{' || input->text[i] == '}') {
+                    temp[0] = input->text[i];
+                    append(output, temp);
+                    state = PLAIN;  
+                } else if (input->text[i] == '\n') {
+                    state = NEWLINE;  
+                } else {
+                    // Assume the character starts a macro
+                    state = MACRO;
+                    continue;  
+                }
                 break;
+
             case NEWLINE:
+                if (input->text[i] != '\n') {
+                    state = PLAIN;
+                    continue;  
+                }
                 break;
+
+            case MACRO:
+                i = process_macro(list, input, output, i);
+                state = PLAIN;  
+                break;  
         }
+
+        // Move to the next character
+        printf("Current character is %c\n", input->text[i]);
         i++;
     }
 }
+
+
 size_t find_close_brace(String *input, size_t i){
     int value = 1;
     size_t index = i;
     while (value != 0){
         index++;
-        printf("on character %c\n", input->text[index]);
+        // if we are out of bounds
+        if (index >= input->length){
+            DIE("Could not find closing brace", 0);
+        }
         if (input->text[index] == '{'){
             value++;
         }
@@ -283,19 +332,41 @@ size_t find_close_brace(String *input, size_t i){
     return index;
 }
 
-void process_macro(MacroList *list, String *input, size_t i){
-    // find the macro name which is between the \ and the next {
-    size_t index = i;
+size_t process_macro(MacroList *list, String *input, String *output, size_t i){
+    // returns what we replace the macro with
+    size_t index = i - 1;
     while (input->text[index] != '{'){
         index++;
     }
     // print i and index
     String macro_type = substring(input, i, index);
+    print_string(&macro_type);
     // if we have a def macro 
     if (strcmp(macro_type.text, "def") == 0){
         printf("Found a def macro\n");
+        return add_def(list, input, index);
+    }
+    // create a string for the macro name
+    if (strcmp(macro_type.text, "undef") == 0){
+        printf("Found an undef macro\n");
+        return remove_def(list, input, index);
         // index is at open brace
-        size_t open_brace1 = index;
+    }
+    // then we have a custon macro and we check if it is defined in macrolist
+    Macro *temp = list_find(list, macro_type.text);
+    if (temp == NULL){
+        DIE("Macro not found", 0);
+    }
+    // else it is defined and we will run state machine on the value
+    append(output, temp->value);
+    return find_close_brace(input, index);
+
+    // return index of 2nd closing brace
+}
+
+
+size_t add_def(MacroList *list, String *input, size_t index){
+    size_t open_brace1 = index;
         size_t close_brace1 = find_close_brace(input, open_brace1);
 
         size_t open_brace2 = close_brace1 + 1;
@@ -311,23 +382,29 @@ void process_macro(MacroList *list, String *input, size_t i){
         // add macro
         Macro *macro = create_macro(macro_name.text, macro_value.text);
         list_add(list, macro);
-        // open brace is at close brace + 1
-        // size_t open_brace2 = close_brace1 + 1;
-        // size_t close_brace2 = find_close_brace(&input, open_brace2);
+        return close_brace2;
+}
+
+size_t remove_def(MacroList *list, String *input, size_t index){
+        size_t open_brace1 = index;
+        size_t close_brace1 = find_close_brace(input, open_brace1);
         // find the macro name
-
-
-    // create a string for the macro name
-    
+        String macro_name = substring(input, index + 1, close_brace1);
+        // print the macro name
+        print_string(&macro_name);
+        // remove the macro
+        list_remove(list, macro_name.text);
+        return close_brace1;
 }
-}
+
 int main(int argc, char *argv[]) {
-
     String input = process_input(argc, argv);
     String output = make_empty_string();
     MacroList *list = list_create();
     // test subsrting
-
-    run_state_machine(list, &input);
+    //"isspace and isalnum"
+    runtime(list, &input, &output);
+    printf("\n _________________ \n");
+    print_string(&output);    
     return 0;
 }

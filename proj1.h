@@ -39,7 +39,9 @@ typedef struct {
     size_t capacity;
 } MacroList;
 
-enum State {PLAIN, MACRO, COMMENT, ESCAPE, NEWLINE};
+enum State {PLAIN, COMMENT, ESCAPE, NEWLINE, MACRO};
+// have to handle escape characters too
+enum Macro_State {DEF, UNDEF, COND, INC, EA, CUS};
 // READING FUNCTIONS
 String store_input(FILE *file);
 String process_input(int argc, char *argv[]);
@@ -48,7 +50,8 @@ String make_empty_string();
 String make_string(char *str);
 void destroy_string(String *str);
 String duplicate_string(String *str);
-void append_to_string(String *str, char *other);
+void append(String *str, char *other);
+void concatenate(String *str, String *other);
 void prepend_string(String *str, char *other);
 void print_string(String *str);
 size_t length_string(String*str);
@@ -66,9 +69,12 @@ void list_print(MacroList *list);
 void deactivate_macro(Macro *macro);
 void list_remove(MacroList *list, char *name);
 Macro *list_find(MacroList *list, char *name);
+size_t add_def(MacroList *list, String *input, size_t index);
+size_t remove_def(MacroList *list, String *input, size_t index);
+
 
 // STATE MACHINE FUNCTIONS
-void run_state_machine(MacroList *list, String *input);
-void process_macro(MacroList *list, String *input, size_t i);
+void runtime(MacroList *list, String *input, String *output);
+size_t process_macro(MacroList *list, String *input, String *output, size_t i);
 size_t find_close_brace(String *input, size_t i);
 
