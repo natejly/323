@@ -279,7 +279,8 @@ void remove_comments(String* input, String* output){
                 break;
 
             case ESCAPE:
-                // re add the escaped
+                // re add the escaped character
+                append(output, "\\");
                 temp[0] = input->text[i];
                 append(output, temp);
                 state = PLAIN;
