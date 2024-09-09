@@ -397,6 +397,7 @@ size_t find_close_brace(String *input, size_t i){
 
 size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
     enum Macro_State { DEF, UNDEF, COND, INC, EA, CUS };  // Define macro states
+
     // Locate where the macro name ends (find the opening brace '{')
     size_t index = i;
     while (input->text[index] != '{' && input->text[index] != '\0') {
@@ -418,9 +419,9 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
         state = UNDEF;
     } else if (strcmp(macro_type.text, "cond") == 0) {
         state = COND;
-    } else if (strcmp(macro_type.text, "include") == 0) {
+    } else if (strcmp(macro_type.text, "inc") == 0) {
         state = INC;
-    } else if (strcmp(macro_type.text, "expandafter") == 0) {
+    } else if (strcmp(macro_type.text, "ea") == 0) {
         state = EA;
     } else {
         state = CUS;  // Assume any unrecognized macro is a custom macro
@@ -449,7 +450,6 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
             return find_close_brace(input, index);  // Handles 'ea'
 
         case CUS:
-            // Custom macro handling
             // Print macro type for debugging purposes
             printf("Macro type: %s\n", macro_type.text);
             list_print(list);
@@ -460,21 +460,24 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
                 destroy_string(&macro_type);
                 DIE("Macro not found", i);
             }
-            //we know that the macro is active
-            // now to check for args within the macro
+
+            // Append the macro value to the output and continue processing
+            // replace hash
             size_t open_brace = index;
             size_t close_brace = find_close_brace(input, open_brace);
             String arg = substring(input, open_brace + 1, close_brace);
             printf("Arg: %s\n", arg.text);
-            // Replace the macro with its value
-            String macro_value = make_empty_string();
-            replace_hash(&temp, &macro_value, &arg);
-            append(output, macro_value.text);
-            destroy_string(&macro_value);
-            destroy_string(&arg);
-            return close_brace;
+            // need to not use make_String
+            String temp_string = make_string(temp->value);
+            String replaced = make_empty_string();
+            replace_hash(&temp_string, &replaced, &arg);
+            append(output, replaced.text);
+            destroy_string(&macro_type);
+            destroy_string(&replaced);
+            destroy_string(&temp_string);
 
-
+            // Find and return the index of the closing brace of the macro
+            return find_close_brace(input, index);
 
         default:
             // Handle unexpected states, if necessary
@@ -485,6 +488,7 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
     // Should never reach here; add fallback if necessary
     return index;
 }
+
 
 
 size_t add_def(MacroList *list, String *input, size_t index){

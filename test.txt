@@ -1,2 +1,4 @@
-\def{name}{world}
-\name{hello}
+\def{testMacro}{some text #}
+\def{macroFragment}{goes #}
+
+\testMacro{\macroFragment}{here}
