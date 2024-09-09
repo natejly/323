@@ -2,7 +2,7 @@ CC = gcc
 CFLAGS = -std=c11 -pedantic -Wall
 
 
-main : proj1.c
+proj1 : proj1.c
 	$(CC) $(CFLAGS) -o $@ $^
 
 clean :

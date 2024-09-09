@@ -4,8 +4,8 @@
 #include <string.h>
 #include <stdlib.h>
 // STRING FUNCTIONS
-#define INITIAL_CAPACITY 16 
-#define BUFFER_SIZE 16
+#define INITIAL_CAPACITY 1024
+#define BUFFER_SIZE 1024
 
 String make_empty_string(){
     //make string lengfth buffer size
@@ -56,11 +56,13 @@ void append(String *str, char *other) {
         str->text = new_text;
         str->capacity = new_capacity;
     }
-    
+
     // Append the other string to the end of the string
-    strcat(str->text, other);
+    memcpy(str->text + str->length, other, other_length);
     str->length += other_length;
+    str->text[str->length] = '\0'; // Ensure null termination
 }
+
 
 
 void concatenate(String *str, String *other){
@@ -284,7 +286,6 @@ String process_input(int argc, char *argv[]){
     }
     else {
         temp = make_empty_string();
-
         for (int i = 1; i<argc; i++){
             FILE *file = fopen(argv[i], "r");
             if (file == NULL){
@@ -320,7 +321,7 @@ void remove_comments(String* input, String* output){
                 }
                 // continue reading
                 break;
-
+                
             case ESCAPE:
                 // re add the escaped character
                 append(output, "\\");
@@ -347,7 +348,6 @@ void remove_comments(String* input, String* output){
 }
 
 void runtime(MacroList *list, String *input, String *output) {
-    String tempout = make_empty_string();
     enum State { PLAIN, ESCAPE, NEWLINE, MACRO } 
     state = PLAIN;
     // i is the index of the input string
@@ -427,7 +427,6 @@ size_t expand_custom(MacroList *list, String *input, String *output, size_t inde
             size_t open_brace = index;
             size_t close_brace = find_close_brace(input, open_brace);
             String arg = substring(input, open_brace + 1, close_brace);
-            printf("Arg: %s\n", arg.text);
             // need to not use make_String
             String temp_string = make_string(temp->value);
             String replaced = make_empty_string();
