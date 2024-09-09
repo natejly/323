@@ -84,4 +84,5 @@ size_t find_close_brace(String *input, size_t i);
 // EXPAND FUNCTIONS
 size_t expand_custom(MacroList *list, String *input, String *output, size_t index, Macro *temp);
 size_t expand_cond(MacroList *list, String *input, String *output, size_t index);
+size_t expand_if(MacroList *list, String *input, String *output, size_t index);
 size_t expand_inc(MacroList *list, String *input, String *output, size_t index);

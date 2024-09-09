@@ -484,6 +484,49 @@ size_t expand_cond(MacroList *list, String *input, String *output, size_t index)
     return close_brace3; 
 }
 
+size_t expand_if(MacroList *list, String *input, String *output, size_t index){
+    size_t open_brace1 = index;
+    // check that the next character is a {
+    if (input->text[open_brace1] != '{'){
+        DIE("Expected {", open_brace1);
+    }
+    size_t close_brace1 = find_close_brace(input, open_brace1);
+    // find the second opening brace
+    size_t open_brace2 = close_brace1 + 1;
+    // check that the next character is a {
+    if (input->text[open_brace2] != '{'){
+        DIE("Expected {", open_brace2);
+    }
+    size_t close_brace2 = find_close_brace(input, open_brace2);
+    // find the third opening brace
+    size_t open_brace3 = close_brace2 + 1;
+    // check that it is a {
+    if (input->text[open_brace3] != '{'){
+        DIE("Expected {", open_brace3);
+    }
+    size_t close_brace3 = find_close_brace(input, open_brace3);
+
+    String arg1 = substring(input, open_brace1 + 1, close_brace1);
+    String arg2 = substring(input, open_brace2 + 1, close_brace2);
+    String arg3 = substring(input, open_brace3 + 1, close_brace3);
+    // cond logic
+    // if arg 1 is empty string then we will append arg2 to the output
+    // else we will append arg3 to the output
+    if (arg1.length == 0){
+        append(output, arg2.text);
+    }
+    else {
+        append(output, arg3.text);
+    }
+
+    destroy_string(&arg1);
+    destroy_string(&arg2);
+    destroy_string(&arg3);
+
+
+    return close_brace3; 
+}
+
 size_t expand_inc(MacroList *list, String *input, String *output, size_t index){
             // injects contents of file into output
             // find open brace and close brace
@@ -503,7 +546,7 @@ size_t expand_inc(MacroList *list, String *input, String *output, size_t index){
             return close_brace;
 }
 size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
-    enum Macro_State { DEF, UNDEF, COND, INC, EA, CUS };  // Define macro states
+    enum Macro_State { DEF, UNDEF, IFDEF, IF, INC, EA, CUS };  // Define macro states
     Macro *temp;
     // Locate where the macro name ends (find the opening brace '{')
     size_t index = i;
@@ -525,7 +568,9 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
     } else if (strcmp(macro_type.text, "undef") == 0) {
         state = UNDEF;
     } else if (strcmp(macro_type.text, "ifdef") == 0) {
-        state = COND;
+        state = IFDEF;
+    } else if (strcmp(macro_type.text, "if") == 0) {
+        state = IF;
     } else if (strcmp(macro_type.text, "include") == 0) {
         state = INC;
     } else if (strcmp(macro_type.text, "ea") == 0) {
@@ -544,16 +589,18 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
             destroy_string(&macro_type);
             return remove_def(list, input, index);  // Handles 'undef' macro removal
 
-        case COND:
+        case IFDEF:
             destroy_string(&macro_type);
             // should have 3 pairs of brackets
             // find the first closing brace
             return expand_cond(list, input, output, index); 
 
+        case IF:
+            destroy_string(&macro_type);
+            return expand_if(list, input, output, index);
         case INC:
             destroy_string(&macro_type);
             return expand_inc(list, input, output, index);  
-
 
         case EA:
             destroy_string(&macro_type);
