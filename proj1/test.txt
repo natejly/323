@@ -1,4 +1,9 @@
-\def{escape}{To escape a # precede it by a backslash}
-\escape{\\}
-\escape{\{}
-\escape{\}}
+A list of values:
+\def{MACRO}{VALUE = #}
+\MACRO{1}
+\MACRO{2}
+\MACRO{3}
+\MACRO{4}
+\MACRO{5}
+\MACRO{6}
+\MACRO{7}

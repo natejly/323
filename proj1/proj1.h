@@ -77,7 +77,7 @@ size_t remove_def(MacroList *list, String *input, size_t index);
 void remove_comments(String* input, String *output);
 
 // STATE MACHINE FUNCTIONS
-void runtime(MacroList *list, String *input, String *output);
+size_t runtime(MacroList *list, String *input, String *output, size_t index);
 size_t process_macro(MacroList *list, String *input, String *output, size_t i);
 size_t find_close_brace(String *input, size_t i);
 
