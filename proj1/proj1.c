@@ -150,24 +150,46 @@ String asubstring(String *str, size_t start_index, size_t end_index){
     return substr;
 }
 
-void replace_hash(String *input, String *output, String *arg){
+void replace_hash(String *input, String *output, String *arg) {
+    typedef enum { NORMAL, ESCAPE } State;
+    State state = NORMAL;
     size_t i = 0;
-    while (i < input->length){
-        if (input->text[i] == '#'){
-            // append the arg
-            append(output, arg->text);  
 
-        }
-        else {
-            char temp[2];
-            temp[0] = input->text[i];
-            temp[1] = '\0';
-            append(output, temp);
+    while (i < input->length) {
+        char current_char = input->text[i];
+
+        switch (state) {
+            case NORMAL:
+                if (current_char == '\\') {
+                    state = ESCAPE;
+                } else if (current_char == '#') {
+                    append(output, arg->text);
+                } else {
+                    char temp[2] = {current_char, '\0'};
+                    append(output, temp);
+                }
+                break;
+
+            case ESCAPE:
+                if (current_char == '\\') {
+                    char temp[2] = {'\\', '\0'};
+                    append(output, temp);
+                } else if (current_char == '#') {
+                    char temp[2] = {'#', '\0'};
+                    append(output, temp);
+                } else {
+                    char temp[2] = {'\\', '\0'};
+                    append(output, temp);
+                    char non_escape[2] = {current_char, '\0'};
+                    append(output, non_escape);
+                }
+                state = NORMAL;
+                break;
         }
         i++;
+    }
+}
 
-}
-}
 // MACRO DICTRIONARY FUNCTIONS
 Macro *create_macro(char *name, char *value){
     Macro *macro = malloc(sizeof(Macro));
@@ -407,26 +429,36 @@ void runtime(MacroList *list, String *input, String *output) {
     }
 }
 
-size_t find_close_brace(String *input, size_t i){
-    int value = 1;
+size_t find_close_brace(String *input, size_t i) {
+    int value = 1; // Initial brace level
     size_t index = i;
-    while (value != 0){
+    
+    while (value != 0) {
         index++;
-        // if we are out of bounds
-        if (index >= input->length){
+        
+        // Check if we are out of bounds
+        if (index >= input->length) {
             DIE("Could not find closing brace", 0);
         }
-        if (input->text[index] == '{'){
+        
+        // Check for escape sequence
+        if (input->text[index] == '\\' && index + 1 < input->length) {
+            // Skip the next character if it's an escape sequence
+            index++;
+        }
+        // Check for opening brace
+        else if (input->text[index] == '{') {
             value++;
         }
-        else if (input->text[index] == '}'){
+        // Check for closing brace
+        else if (input->text[index] == '}') {
             value--;
         }
-
     }
-
+    
     return index;
 }
+
 size_t expand_custom(MacroList *list, String *input, String *output, size_t index, Macro *temp){
 
             size_t open_brace = index;
