@@ -1,5 +1,0 @@
-./main < test.txt > output_main.txt
-
-./ref < test.txt > output_ref.txt
-
-diff output_main.txt output_ref.txt

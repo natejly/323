@@ -356,7 +356,6 @@ void runtime(MacroList *list, String *input, String *output) {
     size_t j = 0;
     char temp[2];  // Buffer to hold a single character
     temp[1] = '\0';  // Null-terminate the string
-
     // Iterate over each character in the input string
     while (i < input->length) {
         switch (state) {
@@ -371,14 +370,20 @@ void runtime(MacroList *list, String *input, String *output) {
                 break;
 
             case ESCAPE:
-                if (input->text[i] == '\\' || input->text[i] == '#' || input->text[i] == '{' || input->text[i] == '}') {
-                    temp[0] = input->text[i];
+                temp[0] = input->text[i];
+
+                if (input->text[i] == '\\' || input->text[i] == '#' || input->text[i] == '{' || input->text[i] == '}' || input->text[i] == '%') {
                     append(output, temp);
                     state = PLAIN;  
+                } else if (!isalnum(temp[0])){
+                    append(output, "\\");
+                    state = PLAIN;
+                    continue;
                 } else if (input->text[i] == '\n') {
                     state = NEWLINE;  
                 } else {
                     // Assume the character starts a macro
+                    
                     state = MACRO;
                     continue;  
                 }
