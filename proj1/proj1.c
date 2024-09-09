@@ -130,6 +130,24 @@ String substring(String *str, size_t start_index, size_t end_index){
     return substr;
 }
 
+String asubstring(String *str, size_t start_index, size_t end_index){
+    // check for alphanumeric substring
+    String substr = make_empty_string();
+    char temp[2];
+    temp[1] = '\0';
+    // Append characters one by one
+    for (size_t i = start_index; i < end_index; i++) {
+        temp[0] = str->text[i]; 
+        // check if alphanumeric
+        if (isalnum(temp[0])){
+            append(&substr, temp);
+        }else{
+            DIE("Substring must be alphanumeric", 0);
+        }
+    }
+    return substr;
+}
+
 void replace_hash(String *input, String *output, String *arg){
     size_t i = 0;
     while (i < input->length){
@@ -329,9 +347,13 @@ void remove_comments(String* input, String* output){
 }
 
 void runtime(MacroList *list, String *input, String *output) {
+    String tempout = make_empty_string();
     enum State { PLAIN, ESCAPE, NEWLINE, MACRO } 
     state = PLAIN;
+    // i is the index of the input string
     size_t i = 0;
+    // j is the index of the output string
+    size_t j = 0;
     char temp[2];  // Buffer to hold a single character
     temp[1] = '\0';  // Null-terminate the string
 
@@ -400,10 +422,90 @@ size_t find_close_brace(String *input, size_t i){
 
     return index;
 }
+size_t expand_custom(MacroList *list, String *input, String *output, size_t index, Macro *temp){
 
+            size_t open_brace = index;
+            size_t close_brace = find_close_brace(input, open_brace);
+            String arg = substring(input, open_brace + 1, close_brace);
+            printf("Arg: %s\n", arg.text);
+            // need to not use make_String
+            String temp_string = make_string(temp->value);
+            String replaced = make_empty_string();
+            replace_hash(&temp_string, &replaced, &arg);
+            // call state macyhine on replaced
+            append(output, replaced.text);
+            destroy_string(&arg); 
+            destroy_string(&replaced);
+            destroy_string(&temp_string);
+
+            // Find and return the index of the closing brace of the macro
+            return close_brace;
+}
+
+size_t expand_cond(MacroList *list, String *input, String *output, size_t index){
+    size_t open_brace1 = index;
+    // check that the next character is a {
+    if (input->text[open_brace1] != '{'){
+        DIE("Expected {", open_brace1);
+    }
+    size_t close_brace1 = find_close_brace(input, open_brace1);
+    // find the second opening brace
+    size_t open_brace2 = close_brace1 + 1;
+    // check that the next character is a {
+    if (input->text[open_brace2] != '{'){
+        DIE("Expected {", open_brace2);
+    }
+    size_t close_brace2 = find_close_brace(input, open_brace2);
+    // find the third opening brace
+    size_t open_brace3 = close_brace2 + 1;
+    // check that it is a {
+    if (input->text[open_brace3] != '{'){
+        DIE("Expected {", open_brace3);
+    }
+    size_t close_brace3 = find_close_brace(input, open_brace3);
+
+    String arg1 = substring(input, open_brace1 + 1, close_brace1);
+    String arg2 = substring(input, open_brace2 + 1, close_brace2);
+    String arg3 = substring(input, open_brace3 + 1, close_brace3);
+    // cond logic
+    // if arg1 is in the list then we will append arg2 to the output
+    // else we will append arg3 to the output
+    Macro *temp = list_find(list, arg1.text);
+    if (temp != NULL){
+        append(output, arg2.text);
+    }
+    else {
+        append(output, arg3.text);
+    }
+    destroy_string(&arg1);
+    destroy_string(&arg2);
+    destroy_string(&arg3);
+
+
+    return close_brace3; 
+}
+
+size_t expand_inc(MacroList *list, String *input, String *output, size_t index){
+            // injects contents of file into output
+            // find open brace and close brace
+            size_t open_brace = index;
+            size_t close_brace = find_close_brace(input, open_brace);
+            // find the file name
+            String file_name = substring(input, open_brace + 1, close_brace);
+            FILE *file = fopen(file_name.text, "r");
+            if (file == NULL){
+                DIE("Could not open file %s", file_name.text);
+            }
+            String file_contents = store_input(file);
+            append(output, file_contents.text);
+            destroy_string(&file_contents);
+            destroy_string(&file_name);
+            fclose(file);
+            return close_brace;
+}
 size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
     enum Macro_State { DEF, UNDEF, COND, INC, EA, CUS };  // Define macro states
-
+    Macro *temp;
     // Locate where the macro name ends (find the opening brace '{')
     size_t index = i;
     while (input->text[index] != '{' && input->text[index] != '\0') {
@@ -423,9 +525,9 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
         state = DEF;
     } else if (strcmp(macro_type.text, "undef") == 0) {
         state = UNDEF;
-    } else if (strcmp(macro_type.text, "cond") == 0) {
+    } else if (strcmp(macro_type.text, "ifdef") == 0) {
         state = COND;
-    } else if (strcmp(macro_type.text, "inc") == 0) {
+    } else if (strcmp(macro_type.text, "include") == 0) {
         state = INC;
     } else if (strcmp(macro_type.text, "ea") == 0) {
         state = EA;
@@ -445,60 +547,32 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
 
         case COND:
             destroy_string(&macro_type);
-            return find_close_brace(input, index);  // Skips 'cond' section
+            // should have 3 pairs of brackets
+            // find the first closing brace
+            return expand_cond(list, input, output, index); 
 
         case INC:
             destroy_string(&macro_type);
-            return find_close_brace(input, index);  // Handles 'inc'
+            return expand_inc(list, input, output, index);  
+
 
         case EA:
             destroy_string(&macro_type);
-            return find_close_brace(input, index);  // Handles 'ea'
+            return find_close_brace(input, index); 
 
         case CUS:
-
-            // Print macro type for debugging purposes
-            printf("Macro type: %s\n", macro_type.text);
-            list_print(list);
-
-            // Handling a custom macro: look it up in the macro list
-            Macro *temp = list_find(list, macro_type.text);
+            temp = list_find(list, macro_type.text);
             if (temp == NULL) {
                 DIE("Macro not found", i);
             }
             destroy_string(&macro_type);
-
-
-            // Append the macro value to the output and continue processing
-            // replace hash
-            size_t open_brace = index;
-            size_t close_brace = find_close_brace(input, open_brace);
-            String arg = substring(input, open_brace + 1, close_brace);
-            printf("Arg: %s\n", arg.text);
-            // need to not use make_String
-            String temp_string = make_string(temp->value);
-            String replaced = make_empty_string();
-            replace_hash(&temp_string, &replaced, &arg);
-            append(output, replaced.text);
-            destroy_string(&arg);
-            destroy_string(&macro_type);
-            destroy_string(&replaced);
-            destroy_string(&temp_string);
-
-            // Find and return the index of the closing brace of the macro
-            return find_close_brace(input, index);
-
+            return expand_custom(list, input, output, index, temp);  
         default:
-            // Handle unexpected states, if necessary
             destroy_string(&macro_type);
             DIE("Unhandled macro state", i);
     }
-
-    // Should never reach here; add fallback if necessary
     return index;
 }
-
-
 
 size_t add_def(MacroList *list, String *input, size_t index){
     size_t open_brace1 = index;
@@ -506,10 +580,11 @@ size_t add_def(MacroList *list, String *input, size_t index){
         size_t open_brace2 = close_brace1 + 1;
         size_t close_brace2 = find_close_brace(input, open_brace2);
         // find the macro name
-        String macro_name = substring(input, index + 1, close_brace1);
+        String macro_name = asubstring(input, index + 1, close_brace1);
         // find the macro value
         String macro_value = substring(input, open_brace2 + 1, close_brace2);
-        // print the macro name and value
+        // check that name is alphanumeric
+
         // add macro
         Macro *macro = create_macro(macro_name.text, macro_value.text);
         list_add(list, macro);

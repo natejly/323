@@ -56,6 +56,8 @@ size_t length_string(String*str);
 void reverse_string(String *str);   
 bool compare_string(String *str1, String *str2);
 String substring(String *str, size_t start_index, size_t end_index);
+String asubstring(String *str, size_t start_index, size_t end_index);
+
 void replace_hash(String *input, String *output, String *arg);
 
 // MACRO LIST FUNCTIONS
@@ -79,3 +81,7 @@ void runtime(MacroList *list, String *input, String *output);
 size_t process_macro(MacroList *list, String *input, String *output, size_t i);
 size_t find_close_brace(String *input, size_t i);
 
+// EXPAND FUNCTIONS
+size_t expand_custom(MacroList *list, String *input, String *output, size_t index, Macro *temp);
+size_t expand_cond(MacroList *list, String *input, String *output, size_t index);
+size_t expand_inc(MacroList *list, String *input, String *output, size_t index);
