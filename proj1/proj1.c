@@ -674,7 +674,6 @@ int main(int argc, char *argv[]) {
 
     // i is index of everything that's been parsed so far
 // Initialize tempout with an empty string before the loop
-    tempout = make_empty_string();
     size_t finish_index = length_string(&tempin);
     // I is where we are in the input string
     size_t i = 0;
@@ -686,7 +685,6 @@ int main(int argc, char *argv[]) {
     // Process the current portion of tempin, updating i to the new position
 for (size_t k = 0; k < finish_index; k++) {
     i = runtime(list, &tempin, &tempout, 0);
-
     String rest = substring(&tempin, i+1, tempin.length);
     append(&tempout, rest.text);
     // set tempin to tempout
@@ -697,14 +695,13 @@ for (size_t k = 0; k < finish_index; k++) {
     destroy_string(&tempout);
     tempout = make_empty_string();
 }
-
-
-//--------------------FREE STUFF--------------------
     print_string(&tempin);
-    print_string(&output);    
+//--------------------FREE STUFF--------------------
     destroy_string(&output);
     destroy_string(&input);
+    destroy_string(&tempin);
     destroy_string(&tempout);
+    destroy_string(&text);
     list_destroy(list);
     return 0;
 }
