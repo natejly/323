@@ -20,18 +20,19 @@ String make_empty_string(){
     return string;
 }
 
-String make_string(char *str){
+String make_string(char *str) {
     String string;
     string.length = strlen(str);
-    size_t size = string.length*sizeof(char);
+    size_t size = (string.length + 1) * sizeof(char); 
     string.text = (char *)malloc(size);
-    if (string.text == NULL){
+    if (string.text == NULL) {
         DIE("Memory allocation failed", size);
     }
-    string.capacity = size + 1;
+    string.capacity = size;
     strcpy(string.text, str);
     return string;
 }
+
 
 void destroy_string(String *str){
     free(str->text);
@@ -161,6 +162,8 @@ Macro *create_macro(char *name, char *value){
 }
 
 void macro_destroy(Macro *macro){
+    free(macro->name);
+    free(macro->value);
     free(macro);
 }
 
@@ -207,16 +210,19 @@ void list_print(MacroList *list){
     }
 }
 
-Macro *list_find(MacroList *list, char *name){
+Macro *list_find(MacroList *list, char *name) {
+
     Macro *current = list->head;
-    while (current != NULL){
-        if (strcmp(current->name, name) == 0){
+    while (current != NULL) {
+        if (current->name != NULL && strcmp(current->name, name) == 0) {
             return current;
         }
         current = current->next;
     }
-    return NULL;
+
+    return NULL; 
 }
+
 
 void list_remove(MacroList *list, char *name){
     Macro *current = list->head;
@@ -450,6 +456,7 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
             return find_close_brace(input, index);  // Handles 'ea'
 
         case CUS:
+
             // Print macro type for debugging purposes
             printf("Macro type: %s\n", macro_type.text);
             list_print(list);
@@ -457,9 +464,10 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
             // Handling a custom macro: look it up in the macro list
             Macro *temp = list_find(list, macro_type.text);
             if (temp == NULL) {
-                destroy_string(&macro_type);
                 DIE("Macro not found", i);
             }
+            destroy_string(&macro_type);
+
 
             // Append the macro value to the output and continue processing
             // replace hash
@@ -472,6 +480,7 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
             String replaced = make_empty_string();
             replace_hash(&temp_string, &replaced, &arg);
             append(output, replaced.text);
+            destroy_string(&arg);
             destroy_string(&macro_type);
             destroy_string(&replaced);
             destroy_string(&temp_string);
