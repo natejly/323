@@ -513,10 +513,10 @@ size_t expand_if(MacroList *list, String *input, String *output, size_t index){
     // if arg 1 is empty string then we will append arg2 to the output
     // else we will append arg3 to the output
     if (arg1.length == 0){
-        append(output, arg2.text);
+        append(output, arg3.text);
     }
     else {
-        append(output, arg3.text);
+        append(output, arg2.text);
     }
 
     destroy_string(&arg1);
@@ -622,19 +622,30 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
 
 size_t add_def(MacroList *list, String *input, size_t index){
     size_t open_brace1 = index;
-        size_t close_brace1 = find_close_brace(input, open_brace1);
-        size_t open_brace2 = close_brace1 + 1;
-        size_t close_brace2 = find_close_brace(input, open_brace2);
-        // find the macro name
-        String macro_name = asubstring(input, index + 1, close_brace1);
-        // find the macro value
-        String macro_value = substring(input, open_brace2 + 1, close_brace2);
-        // check that name is alphanumeric
-
-        // add macro
-        Macro *macro = create_macro(macro_name.text, macro_value.text);
-        list_add(list, macro);
-        return close_brace2;
+    // check that the next character is a {
+    if (input->text[open_brace1] != '{'){
+        DIE("Expected {", open_brace1);
+    }
+    size_t close_brace1 = find_close_brace(input, open_brace1);
+    size_t open_brace2 = close_brace1 + 1;
+    // check that the next character is a {
+    if (input->text[open_brace2] != '{'){
+        DIE("Expected {", open_brace2);
+    }
+    size_t close_brace2 = find_close_brace(input, open_brace2);
+    // find the macro name
+    String macro_name = asubstring(input, index + 1, close_brace1);
+    // find the macro value
+    String macro_value = substring(input, open_brace2 + 1, close_brace2);
+    // check that name is alphanumeric
+    // check if macro is already in lsit
+    if (list_find(list, macro_name.text) != NULL){
+        return index;
+    }
+    // add macro
+    Macro *macro = create_macro(macro_name.text, macro_value.text);
+    list_add(list, macro);
+    return close_brace2;
 }
 
 size_t remove_def(MacroList *list, String *input, size_t index){

@@ -1,0 +1,180 @@
+Public test script for proj1
+
+
+========== MAKING proj1
+
+***** Checking for warning messages *****
+Making ./proj1
+make: 'proj1' is up to date.
+Each test is either passed or failed; there is no partial credit.
+
+To execute the test labelled IJ, type the command:
+     /c/cs323/proj1/tests/tIJ
+The answer expected is in /c/cs323/proj1/tests/tIJ.t.
+
+
+========== RUNNING TESTS
+
+
+-------------- Text
+  1 point  /c/cs323/proj1/tests/t01  No macro instructions
+
+-------------- Macroexpansion
+  1 point  /c/cs323/proj1/tests/t02  No # in VALUE
+  1 point  /c/cs323/proj1/tests/t03  # in VALUE
+  1 point  /c/cs323/proj1/tests/t04  Multiple # in VALUE
+[36m3c3[0m
+[31m< An aardvark eats ants.[0m
+[36m---[0m
+[32m> An \Animal{a} eats ants.[0m
+[36m6c6[0m
+[31m< An anteater eats ants, too.[0m
+[36m---[0m
+[32m> An \Animal{a} eats ants, too.[0m
+[34mError: STDOUT differs from expected[0m
+  0 point  /c/cs323/proj1/tests/t21  VALUE contains macro that later changes
+[36m2,11c2,11[0m
+[31m< 1[0m
+[31m< 1, 2[0m
+[31m< 1, 2, 3[0m
+[31m< 1, 2, 3, 4[0m
+[31m< 1, 2, 3, 4, 5[0m
+[31m< 1, 2, 3, 4, 5, 6[0m
+[31m< 1, 2, 3, 4, 5, 6, 7[0m
+[31m< 1, 2, 3, 4, 5, 6, 7, 8[0m
+[31m< 1, 2, 3, 4, 5, 6, 7, 8, 9[0m
+[31m< 1, 2, 3, 4, 5, 6, 7, 8, 9, 10[0m
+[36m---[0m
+[32m> \ifdef{endfor}{}{\def{endfor}{.}}\ifdef{endfor}{}{, \foreach}1[0m
+[32m> \ifdef{endfor}{}{\def{endfor}{.}}\ifdef{1endfor}{}{1, \foreach}{}2[0m
+[32m> \ifdef{endfor}{}{\def{endfor}{.}}\ifdef{1endfor}{}{1, \foreach}{2}{}3[0m
+[32m> \ifdef{endfor}{}{\def{endfor}{.}}\ifdef{1endfor}{}{1, \foreach}{2}{3}{}4[0m
+[34mError: STDOUT differs from expected[0m
+  0 point  /c/cs323/proj1/tests/t22  foreach macro from specification
+
+-------------- Errors
+  1 point  /c/cs323/proj1/tests/t05  Missing {ARG} (error)
+  1 point  /c/cs323/proj1/tests/t06  {ARG} is not brace-balanced (error)
+  1 point  /c/cs323/proj1/tests/t23  Missing {NAME}/{VALUE}/{ELSE}/{FILENAME}
+  1 point  /c/cs323/proj1/tests/t26  MACRO not defined macro
+[36m1c1[0m
+[31m< 1[0m
+[36m---[0m
+[32m> 0[0m
+[34mError: STDOUT differs from expected[0m
+  0 point  /c/cs323/proj1/tests/t27  Attempt to def defined macro
+
+-------------- \def
+  1 point  /c/cs323/proj1/tests/t07  Deeply nested braces in VALUE/ARG
+
+-------------- \ifdef and \if
+[36m5c5[0m
+[31m< Output this text.[0m
+[36m---[0m
+[32m> Do not output this text.[0m
+[34mError: STDOUT differs from expected[0m
+  0 point  /c/cs323/proj1/tests/t08  Name exists / argument nonempty
+
+-------------- \undef
+  1 point  /c/cs323/proj1/tests/t09  Simple case
+
+-------------- \expandafter
+[36mproj1: Macro not found[0m
+[34mError: STDERR should be empty)[0m
+[36m1,2d0[0m
+[31m< [0m
+[31m< aardvark != anteater[0m
+[34mError: STDOUT differs from expected[0m
+  0 point  /c/cs323/proj1/tests/t10  Simple case (expand VALUE2 first)
+[36mproj1: Macro not found[0m
+[34mError: STDERR should be empty)[0m
+[36m1,2d0[0m
+[31m<  [0m
+[31m<   aardvark != anteater[0m
+[34mError: STDOUT differs from expected[0m
+  0 point  /c/cs323/proj1/tests/t11  Example from specification
+[36mproj1: Macro not found[0m
+[34mError: STDERR should be empty)[0m
+[36m1d0[0m
+[31m< anteater[0m
+[34mError: STDOUT differs from expected[0m
+  0 point  /c/cs323/proj1/tests/t29  BEFORE and expand(AFTER') are expanded together
+[36mproj1: Macro not found[0m
+[34mError: STDERR should be empty)[0m
+[36m1d0[0m
+[31m< gamma[0m
+[34mError: STDOUT differs from expected[0m
+  0 point  /c/cs323/proj1/tests/t34  Expansion of AFTER defines macro used in BEFORE
+
+-------------- \include
+  1 point  /c/cs323/proj1/tests/t12  Simple file with no macros
+  1 point  /c/cs323/proj1/tests/t38  Many \includes (files closed?)
+[36mproj1: Macro not found[0m
+[34mError: STDERR should be empty)[0m
+[36m1,7d0[0m
+[31m< [0m
+[31m< beri-[0m
+[31m< beri[0m
+[31m< [0m
+[31m< beri-[0m
+[31m< -[0m
+[31m< beri[0m
+[34mError: STDOUT differs from expected[0m
+  0 point  /c/cs323/proj1/tests/t39  \def / \macro extends beyond end of file
+
+-------------- Comments
+  1 point  /c/cs323/proj1/tests/t13  Ignore remainder of line and leading blanks/tabs
+  1 point  /c/cs323/proj1/tests/t40  Following line empty or only blanks/tabs
+
+-------------- Escaped characters
+[36mproj1: Unexpected end of input while looking for '{'[0m
+[36mproj1: Unexpected end of input while looking for '{'[0m
+[34mError: STDERR should be empty)[0m
+[36m1,4d0[0m
+[31m< The following characters can be escaped when necessary:[0m
+[31m<  \, {, }, #, %[0m
+[31m< The following escapes should be preserved:[0m
+[31m<  \[, \], \(, \), \+, \-, \*, \/, \=[0m
+[36m6,9d1[0m
+[31m< The following characters can be escaped when necessary:[0m
+[31m<  \, {, }, #, %[0m
+[31m< The following escapes should be preserved:[0m
+[31m<  \[, \], \(, \), \+, \-, \*, \/, \=[0m
+[36m12,14c4,6[0m
+[31m< To escape a \ precede it by a backslash[0m
+[31m< To escape a { precede it by a backslash[0m
+[31m< To escape a } precede it by a backslash[0m
+[36m---[0m
+[32m> To escape a \\ precede it by a backslash[0m
+[34mError: STDOUT differs from expected[0m
+  0 point  /c/cs323/proj1/tests/t14  Deleted if %, #, {, }, or \, but not otherwise
+[36m2c2[0m
+[31m< alpha # \gamma[0m
+[36m---[0m
+[32m> alpha \beta \\gamma[0m
+[34mError: STDOUT differs from expected[0m
+  0 point  /c/cs323/proj1/tests/t46  # vs. \# vs. \\# in VALUE
+
+-------------- Linear time and space
+  1 point  /c/cs323/proj1/tests/t15  Very short input with simple expansion and limited memory
+  1 point  /c/cs323/proj1/tests/t16  Very long input with no macros
+  1 point  /c/cs323/proj1/tests/t17  Very long macro NAME
+  1 point  /c/cs323/proj1/tests/t49  Very long VALUE field
+
+-------------- Is all storage reachable?
+  1 point  /c/cs323/proj1/tests/t18  Repeat of Tests #06 and #07
+
+End of Public Script
+
+ 19 points Total for proj1
+
+
+========== POSSIBLE DEDUCTIONS
+These deductions are assessed after submission, as appropriate.
+
+                -5 Does not make
+                -1 Makefile missing
+                -1 Makefile incorrect
+                -1 Compilation errors using -Wall -std=c11 -pedantic
+
+***** Checking makefile *****
