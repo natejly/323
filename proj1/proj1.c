@@ -738,7 +738,7 @@ size_t add_def(MacroList *list, String *input, size_t index){
     // check that name is alphanumeric
     // check if macro is already in lsit
     if (list_find(list, macro_name.text) != NULL){
-        return index;
+        DIE("Macro already exists", index);
     }
     // add macro
     Macro *macro = create_macro(macro_name.text, macro_value.text);
