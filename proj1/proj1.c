@@ -428,7 +428,6 @@ void runtime(MacroList *list, String *input, String *output) {
                 middle = make_empty_string();
                 j = process_macro(list, input, &middle, i);
                 if(j == -1){
-                
                     append(output, input->text);
                                         return;
 
@@ -646,7 +645,6 @@ int process_macro(MacroList *list, String *input, String *output, size_t i) {
     Macro *check;
     if (input->text[index] == '\0') {
         String test = substring(input, i, index-1);
-        print_string(&test);
         check = list_find(list, test.text);
         if (check != NULL){
             DIE("Macro not found", i);
