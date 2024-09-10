@@ -64,6 +64,7 @@ void append(String *str, char *other) {
 }
 
 
+
 void concatenate(String *str, String *other){
     // Ensure there's enough capacity
     while (str->length + other->length + 1 > str->capacity) { // +1 for null terminator
@@ -77,6 +78,7 @@ void concatenate(String *str, String *other){
         str->text = new_text;
         str->capacity = new_capacity;
     }
+    
     // Append the other string to the end of the string
     strcat(str->text, other->text);
     str->length += other->length;
@@ -126,6 +128,7 @@ String substring(String *str, size_t start_index, size_t end_index){
         temp[0] = str->text[i]; 
         append(&substr, temp);
     }
+
     return substr;
 }
 
@@ -147,24 +150,46 @@ String asubstring(String *str, size_t start_index, size_t end_index){
     return substr;
 }
 
-void replace_hash(String *input, String *output, String *arg){
+void replace_hash(String *input, String *output, String *arg) {
+    typedef enum { NORMAL, ESCAPE } State;
+    State state = NORMAL;
     size_t i = 0;
-    while (i < input->length){
-        if (input->text[i] == '#'){
-            // append the arg
-            append(output, arg->text);  
 
-        }
-        else {
-            char temp[2];
-            temp[0] = input->text[i];
-            temp[1] = '\0';
-            append(output, temp);
+    while (i < input->length) {
+        char current_char = input->text[i];
+
+        switch (state) {
+            case NORMAL:
+                if (current_char == '\\') {
+                    state = ESCAPE;
+                } else if (current_char == '#') {
+                    append(output, arg->text);
+                } else {
+                    char temp[2] = {current_char, '\0'};
+                    append(output, temp);
+                }
+                break;
+
+            case ESCAPE:
+                if (current_char == '\\') {
+                    char temp[2] = {'\\', '\0'};
+                    append(output, temp);
+                } else if (current_char == '#') {
+                    char temp[2] = {'#', '\0'};
+                    append(output, temp);
+                } else {
+                    char temp[2] = {'\\', '\0'};
+                    append(output, temp);
+                    char non_escape[2] = {current_char, '\0'};
+                    append(output, non_escape);
+                }
+                state = NORMAL;
+                break;
         }
         i++;
+    }
+}
 
-}
-}
 // MACRO DICTRIONARY FUNCTIONS
 Macro *create_macro(char *name, char *value){
     Macro *macro = malloc(sizeof(Macro));
@@ -344,18 +369,18 @@ void remove_comments(String* input, String* output){
     }
 }
 
-size_t runtime(MacroList *list, String *input, String *output, size_t index){ 
-    // returns the index of the first macro so we can reprocess it 
+void runtime(MacroList *list, String *input, String *output) {
     enum State { PLAIN, ESCAPE, NEWLINE, MACRO } 
     state = PLAIN;
     // i is the index of the input string
-    size_t i = index;
+    size_t i = 0;
     // j is the index of the output string
     size_t j = 0;
     char temp[2];  // Buffer to hold a single character
     temp[1] = '\0';  // Null-terminate the string
-
     // Iterate over each character in the input string
+    String middle;
+    String rest;
     while (i < input->length) {
         switch (state) {
             case PLAIN:
@@ -369,14 +394,20 @@ size_t runtime(MacroList *list, String *input, String *output, size_t index){
                 break;
 
             case ESCAPE:
-                if (input->text[i] == '\\' || input->text[i] == '#' || input->text[i] == '{' || input->text[i] == '}') {
-                    temp[0] = input->text[i];
+                temp[0] = input->text[i];
+
+                if (input->text[i] == '\\' || input->text[i] == '#' || input->text[i] == '{' || input->text[i] == '}' || input->text[i] == '%') {
                     append(output, temp);
                     state = PLAIN;  
+                } else if (!isalnum(temp[0])){
+                    append(output, "\\");
+                    state = PLAIN;
+                    continue;
                 } else if (input->text[i] == '\n') {
                     state = NEWLINE;  
                 } else {
                     // Assume the character starts a macro
+                    
                     state = MACRO;
                     continue;  
                 }
@@ -390,13 +421,22 @@ size_t runtime(MacroList *list, String *input, String *output, size_t index){
                 break;
 
             case MACRO:
-            // set j to index of the first character of the macro
-                i = process_macro(list, input, output, i);
-                return i;
-            // return the index of the first character of the macro
-            // not needed???
+                // i is where macro starts
+                // j is where the macro ends
+                middle = make_empty_string();
+                j = process_macro(list, input, &middle, i);
+                // the processed part is start to i
+                rest = substring(input, j + 1, input->length);
+                append(&middle, rest.text);
+                runtime(list, &middle, output);
+                // replace input with temp
+                // kill strings
+                destroy_string(&middle);
+                destroy_string(&rest);
+    
+                // expand the macro into the input
                 state = PLAIN;  
-                break;  
+                return;  
         }
 
         // Move to the next character
@@ -404,26 +444,36 @@ size_t runtime(MacroList *list, String *input, String *output, size_t index){
     }
 }
 
-size_t find_close_brace(String *input, size_t i){
-    int value = 1;
+size_t find_close_brace(String *input, size_t i) {
+    int value = 1; // Initial brace level
     size_t index = i;
-    while (value != 0){
+    
+    while (value != 0) {
         index++;
-        // if we are out of bounds
-        if (index >= input->length){
+        
+        // Check if we are out of bounds
+        if (index >= input->length) {
             DIE("Could not find closing brace", 0);
         }
-        if (input->text[index] == '{'){
+        
+        // Check for escape sequence
+        if (input->text[index] == '\\' && index + 1 < input->length) {
+            // Skip the next character if it's an escape sequence
+            index++;
+        }
+        // Check for opening brace
+        else if (input->text[index] == '{') {
             value++;
         }
-        else if (input->text[index] == '}'){
+        // Check for closing brace
+        else if (input->text[index] == '}') {
             value--;
         }
-
     }
-
+    
     return index;
 }
+
 size_t expand_custom(MacroList *list, String *input, String *output, size_t index, Macro *temp){
 
             size_t open_brace = index;
@@ -562,6 +612,7 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
 
     // Extract the macro type name between i and index
     String macro_type = substring(input, i, index);
+
     // Map the macro type string to a Macro_State enum value
     enum Macro_State state;
     if (strcmp(macro_type.text, "def") == 0) {
@@ -599,7 +650,6 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
         case IF:
             destroy_string(&macro_type);
             return expand_if(list, input, output, index);
-
         case INC:
             destroy_string(&macro_type);
             return expand_inc(list, input, output, index);  
@@ -665,43 +715,20 @@ size_t remove_def(MacroList *list, String *input, size_t index){
 int main(int argc, char *argv[]) {
     String input = process_input(argc, argv);
     String output = make_empty_string();
-    String tempout = make_empty_string();
-    String text = make_empty_string();
-    String tempin = make_string(input.text);
-    remove_comments(&input, &text);
+    String comments_removed = make_empty_string();
+    remove_comments(&input, &comments_removed);
     MacroList *list = list_create();
-//--------------------TESTING--------------------
-
-    // i is index of everything that's been parsed so far
-// Initialize tempout with an empty string before the loop
-    size_t finish_index = length_string(&tempin);
-    // I is where we are in the input string
-    size_t i = 0;
-    // j is the index past the stuff we've processed
-    size_t j = i;
-
-// i is the index of everything that's been parsed so far
-    // Create a temporary output string for the current iteration
-    // Process the current portion of tempin, updating i to the new position
-for (size_t k = 0; k < finish_index; k++) {
-    i = runtime(list, &tempin, &tempout, 0);
-    String rest = substring(&tempin, i+1, tempin.length);
-    append(&tempout, rest.text);
-    // set tempin to tempout
-    destroy_string(&rest);
-    destroy_string(&tempin);
-    tempin = make_string(tempout.text);
-    // reset tempout
-    destroy_string(&tempout);
-    tempout = make_empty_string();
-}
-    print_string(&tempin);
-//--------------------FREE STUFF--------------------
+    runtime(list, &comments_removed, &output);
+    print_string(&output);    
     destroy_string(&output);
     destroy_string(&input);
-    destroy_string(&tempin);
-    destroy_string(&tempout);
-    destroy_string(&text);
+    destroy_string(&comments_removed);
     list_destroy(list);
+    // want to test replace_hash
+    // String input = make_string("Hello #world");
+    // String output = make_empty_string();
+    // String arg = make_string("world");
+    // replace_hash(&input, &output, &arg);
+    // print_string(&output);
     return 0;
 }
