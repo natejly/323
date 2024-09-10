@@ -86,3 +86,4 @@ size_t expand_custom(MacroList *list, String *input, String *output, size_t inde
 size_t expand_cond(MacroList *list, String *input, String *output, size_t index);
 size_t expand_if(MacroList *list, String *input, String *output, size_t index);
 size_t expand_inc(MacroList *list, String *input, String *output, size_t index);
+size_t expand_ea(MacroList *list, String *input, String *output, size_t index);

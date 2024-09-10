@@ -597,6 +597,32 @@ size_t expand_inc(MacroList *list, String *input, String *output, size_t index){
             fclose(file);
             return close_brace;
 }
+//The point of this macro is to delay expanding the before argument until the after argument has been expanded. The output of this macro expansion is simply BEFORE immediately followed by the expanded AFTER. Note that this changes the recursive evaluation rule, i.e. you should eagerly expand all macros in the AFTER string before touching BEFORE. This means that any new macros defined in AFTER should be in scope for the BEFORE. You may not use additional processes/threads to accomplish these actions. Here’s an example program:
+size_t expand_ea(MacroList *list, String *input, String *output, size_t index){
+    size_t open_brace = index;
+    size_t close_brace = find_close_brace(input, open_brace);
+    // find the before and after strings
+    String before = substring(input, open_brace + 1, close_brace);
+    // find the after string
+    size_t open_brace2 = close_brace + 1;
+    // check that the next character is a {
+    if (input->text[open_brace2] != '{'){
+        DIE("Expected {", open_brace2);
+    }
+    size_t close_brace2 = find_close_brace(input, open_brace2);
+    String after = substring(input, open_brace2 + 1, close_brace2);
+    // expand the after string
+    String temp = make_empty_string();
+    runtime(list, &after, &temp);
+    // append the before and after strings to the output
+    append(output, before.text);
+    append(output, temp.text);
+    destroy_string(&before);
+    destroy_string(&after);
+    destroy_string(&temp);
+    return close_brace2;
+}
+
 size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
     enum Macro_State { DEF, UNDEF, IFDEF, IF, INC, EA, CUS };  // Define macro states
     Macro *temp;
@@ -625,7 +651,7 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
         state = IF;
     } else if (strcmp(macro_type.text, "include") == 0) {
         state = INC;
-    } else if (strcmp(macro_type.text, "ea") == 0) {
+    } else if (strcmp(macro_type.text, "expandafter") == 0) {
         state = EA;
     } else {
         state = CUS;  // Assume any unrecognized macro is a custom macro
@@ -656,7 +682,8 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
 
         case EA:
             destroy_string(&macro_type);
-            return find_close_brace(input, index); 
+            return expand_ea(list, input, output, index);  
+
 
         case CUS:
             temp = list_find(list, macro_type.text);
