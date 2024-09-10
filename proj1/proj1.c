@@ -248,6 +248,8 @@ void list_add(MacroList *list, Macro *macro){
 void list_print(MacroList *list){
     Macro *current = list->head;
     while (current != NULL){
+        printf("Name: %s\n", current->name);
+        printf("Value: %s\n", current->value);
         current = current->next;
     }
 }
@@ -425,6 +427,12 @@ void runtime(MacroList *list, String *input, String *output) {
                 // j is where the macro ends
                 middle = make_empty_string();
                 j = process_macro(list, input, &middle, i);
+                if(j == -1){
+                
+                    append(output, input->text);
+                                        return;
+
+                }
                 // the processed part is start to i
                 rest = substring(input, j + 1, input->length);
                 append(&middle, rest.text);
@@ -623,7 +631,7 @@ size_t expand_ea(MacroList *list, String *input, String *output, size_t index){
     return close_brace2;
 }
 
-size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
+int process_macro(MacroList *list, String *input, String *output, size_t i) {
     enum Macro_State { DEF, UNDEF, IFDEF, IF, INC, EA, CUS };  // Define macro states
     Macro *temp;
     // Locate where the macro name ends (find the opening brace '{')
@@ -632,12 +640,25 @@ size_t process_macro(MacroList *list, String *input, String *output, size_t i) {
         index++;
     }
     // Check for end of string to avoid out-of-bounds access
-    if (input->text[index] == '\0') {
-        DIE("Unexpected end of input while looking for '{'", index);
-    }
+
 
     // Extract the macro type name between i and index
+    Macro *check;
+    if (input->text[index] == '\0') {
+        String test = substring(input, i, index-1);
+        print_string(&test);
+        check = list_find(list, test.text);
+        if (check != NULL){
+            DIE("Macro not found", i);
+        }else{
+            return -1;
+        }
+
+
+
+    }
     String macro_type = substring(input, i, index);
+
 
     // Map the macro type string to a Macro_State enum value
     enum Macro_State state;
