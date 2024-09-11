@@ -150,6 +150,10 @@ String asubstring(String *str, size_t start_index, size_t end_index){
             DIE("Substring must be alphanumeric", 0);
         }
     }
+
+    if (substr.length == 0){
+        return substr;
+    }
     return substr;
 }
 
@@ -174,9 +178,12 @@ void replace_hash(String *input, String *output, String *arg) {
                 break;
 
             case ESCAPE:
+            
                 if (current_char == '\\') {
                     char temp[2] = {'\\', '\0'};
                     append(output, temp);
+                    append(output, temp);
+
                 } else if (current_char == '#') {
                     char temp[2] = {'#', '\0'};
                     append(output, temp);
@@ -186,6 +193,7 @@ void replace_hash(String *input, String *output, String *arg) {
                     char non_escape[2] = {current_char, '\0'};
                     append(output, non_escape);
                 }
+
                 state = NORMAL;
                 break;
         }
@@ -327,30 +335,29 @@ String process_input(int argc, char *argv[]){
     return temp;
 }
 
-void remove_comments(String* input, String* output){
-    enum State {PLAIN, COMMENT, ESCAPE} 
+void remove_comments(String* input, String* output) {
+    enum State { PLAIN, COMMENT, ESCAPE } 
     state = PLAIN;
     size_t i = 0;
     char temp[2];  // Buffer to hold a single character
     temp[1] = '\0';  // Null-terminate the string
-    while (i < input->length){
-        switch (state){
+    while (i < input->length) {
+        switch (state) {
             case PLAIN:
-                if (input->text[i] == '\\'){
+                if (input->text[i] == '\\') {
                     state = ESCAPE;
-                }
-                else if (input->text[i] == '%'){
+                } 
+                else if (input->text[i] == '%') {
                     state = COMMENT;
                 } 
                 else {
                     temp[0] = input->text[i];
                     append(output, temp);
                 }
-                // continue reading
                 break;
-                
+
             case ESCAPE:
-                // re add the escaped character
+                // Append the backslash and the escaped character
                 append(output, "\\");
                 temp[0] = input->text[i];
                 append(output, temp);
@@ -358,21 +365,27 @@ void remove_comments(String* input, String* output){
                 break;
 
             case COMMENT:
-                // skip characters untill newline or end of file
-                if (input->text[i] == '\n'){
-                    // step
+                // Skip characters until newline or end of file
+                if (input->text[i] == '\n') {
+                    // Step forward and skip spaces and tabs after the comment
                     i++;
-                    // skip spaces and tabs
-                    while (input->text[i] == ' ' || input->text[i] == '\t'){
+                    while (i < input->length && (input->text[i] == ' ' || input->text[i] == '\t')) {
                         i++;
                     }
                     state = PLAIN;
                     continue;
                 }
+                break;
         }
         i++;
     }
+
+    // Handle the case where the last character is a backslash
+    if (state == ESCAPE) {
+        append(output, "\\");
+    }
 }
+
 
 void runtime(MacroList *list, String *input, String *output) {
     enum State { PLAIN, ESCAPE, NEWLINE, MACRO } 
@@ -401,10 +414,17 @@ void runtime(MacroList *list, String *input, String *output) {
             case ESCAPE:
                 temp[0] = input->text[i];
 
+                // If backslash is the last character in the input, keep it
+                if (i == input->length - 1) {
+                    append(output, "\\");
+                    
+                    state = PLAIN;
+                    break;
+                }
                 if (input->text[i] == '\\' || input->text[i] == '#' || input->text[i] == '{' || input->text[i] == '}' || input->text[i] == '%') {
                     append(output, temp);
                     state = PLAIN;  
-                } else if (!isalnum(temp[0])){
+                } else if (!isalnum(temp[0])) {
                     append(output, "\\");
                     state = PLAIN;
                     continue;
@@ -412,7 +432,6 @@ void runtime(MacroList *list, String *input, String *output) {
                     state = NEWLINE;  
                 } else {
                     // Assume the character starts a macro
-                    
                     state = MACRO;
                     continue;  
                 }
@@ -431,26 +450,33 @@ void runtime(MacroList *list, String *input, String *output) {
                 middle = make_empty_string();
                 j = process_macro(list, input, &middle, i);
                 if(j == -1){
-                    append(output, input->text);
+                    // append(output, input->text);
+                    DIE("MACRO NOT FOUND", 0);
                                         return;
                 }
-                // the processed part is start to i
+                // Process the remaining input after the macro
                 rest = substring(input, j + 1, input->length);
+                // printf("\ninput: %s\n", input->text);
+                // printf("\nmiddle: %s\n", middle.text);
+                // printf("\nrest: %s\n", rest.text);
                 append(&middle, rest.text);
                 runtime(list, &middle, output);
-                // replace input with temp
-                // kill strings
+                // Clean up strings
                 destroy_string(&middle);
                 destroy_string(&rest);
-    
-                // expand the macro into the input
-                state = PLAIN;  
-                return;  
-        }
+                // if j is at end of string then we will die
 
+                state = PLAIN;
+                return;
+        }
         // Move to the next character
         i++;
     }
+    // idk why this works but it just does
+    if (state == ESCAPE) {
+        append(output, "\\");
+    }
+
 }
 
 size_t find_close_brace(String *input, size_t i) {
@@ -484,7 +510,10 @@ size_t find_close_brace(String *input, size_t i) {
 }
 
 size_t expand_custom(MacroList *list, String *input, String *output, size_t index, Macro *temp){
-
+            // check that we are on a {
+            if (input->text[index] != '{'){
+                DIE("Expected {", index);
+            }
             size_t open_brace = index;
             size_t close_brace = find_close_brace(input, open_brace);
             String arg = substring(input, open_brace + 1, close_brace);
@@ -509,6 +538,10 @@ size_t expand_cond(MacroList *list, String *input, String *output, size_t index)
         DIE("Expected {", open_brace1);
     }
     size_t close_brace1 = find_close_brace(input, open_brace1);
+    // check if first arg empty
+    if (close_brace1 - open_brace1 == 1){
+        DIE("Must be nonempty", 0);
+    }
     // find the second opening brace
     size_t open_brace2 = close_brace1 + 1;
     // check that the next character is a {
@@ -609,6 +642,10 @@ size_t expand_inc(MacroList *list, String *input, String *output, size_t index){
 size_t expand_ea(MacroList *list, String *input, String *output, size_t index){
     size_t open_brace = index;
     size_t close_brace = find_close_brace(input, open_brace);
+    // if open and close next to each other then we will return
+    if (close_brace - open_brace == 1){
+        DIE("Must be nonempty", 0);
+    }
     // find the before and after strings
     String before = substring(input, open_brace + 1, close_brace);
     // find the after string
@@ -657,6 +694,8 @@ int process_macro(MacroList *list, String *input, String *output, size_t i) {
 
     }
     String macro_type = substring(input, i, index);
+    // if we have an empty string then we will return -1
+    
 
 
     // Map the macro type string to a Macro_State enum value

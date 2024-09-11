@@ -72,6 +72,8 @@ void list_remove(MacroList *list, char *name);
 Macro *list_find(MacroList *list, char *name);
 size_t add_def(MacroList *list, String *input, size_t index);
 size_t remove_def(MacroList *list, String *input, size_t index);
+bool inlist(MacroList *list, char *name);
+
 
 // COMMENTS REMOVER
 void remove_comments(String* input, String *output);
