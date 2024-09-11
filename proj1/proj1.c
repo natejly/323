@@ -132,7 +132,6 @@ String substring(String *str, size_t start_index, size_t end_index){
         temp[0] = str->text[i]; 
         append(&substr, temp);
     }
-
     return substr;
 }
 
