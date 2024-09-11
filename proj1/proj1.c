@@ -120,6 +120,10 @@ size_t capacity_string(String *str){
 }
 
 String substring(String *str, size_t start_index, size_t end_index){
+    if (start_index > end_index){
+        DIE("Start index must be less than end index", 0);
+    }
+
     String substr = make_empty_string();
     char temp[2];
     temp[1] = '\0';

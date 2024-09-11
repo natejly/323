@@ -1,3 +1,42 @@
-\def{A}{#} \def{B}{\#} \def{C}{\\#}
-\A{alpha} \B{beta} \C{gamma}
-% alpha # \gamma
+\def{a}{A}
+\def{b}{\a{}B}
+\def{c}{\b{}\a{}C}
+\def{d}{\c{}\b{}D}
+\def{e}{\d{}\c{}E}
+\def{f}{\e{}\d{}F}
+\def{g}{\f{}\e{}G}
+\def{h}{\g{}\f{}H}
+\def{i}{\h{}\g{}I}
+\def{j}{\i{}\h{}J}
+\def{k}{\j{}\i{}K}
+\def{l}{\k{}\j{}L}
+\def{m}{\l{}\k{}M}
+\def{n}{\m{}\l{}N}
+\def{o}{\n{}\m{}O}
+\def{p}{\o{}\n{}P}
+\def{q}{\p{}\o{}Q}
+\def{r}{\q{}\p{}R}
+\def{s}{\r{}\q{}S}
+\def{t}{\s{}\r{}T}
+\def{u}{\t{}\s{}U}
+\def{v}{\u{}\t{}V}
+\def{w}{\v{}\u{}W}
+\def{x}{\w{}\v{}X}
+\def{y}{\x{}\w{}Y}
+\def{z}{\y{}\x{}Z}
+
+\def{test}{\z{}\y{}\x{}\w{}\v{}\u{}\t{}\s{}\r{}\q{}\p{}\o{}\n{}\m{}\l{}\k{}\j{}\i{}\h{}\g{}\f{}\e{}\d{}\c{}\b{}\a{}}
+
+\def{check}{
+  \ifdef{a}{a is defined}{a is undefined}
+  \ifdef{b}{b is defined}{b is undefined}
+  \ifdef{nonexistent}{nonexistent is defined}{nonexistent is undefined}
+}
+
+
+
+\check{}
+\test{} 
+
+\undef{a}
+\undef{b}
