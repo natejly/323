@@ -433,7 +433,6 @@ void runtime(MacroList *list, String *input, String *output) {
                 if(j == -1){
                     append(output, input->text);
                                         return;
-
                 }
                 // the processed part is start to i
                 rest = substring(input, j + 1, input->length);
@@ -525,7 +524,7 @@ size_t expand_cond(MacroList *list, String *input, String *output, size_t index)
     }
     size_t close_brace3 = find_close_brace(input, open_brace3);
 
-    String arg1 = substring(input, open_brace1 + 1, close_brace1);
+    String arg1 = asubstring(input, open_brace1 + 1, close_brace1);
     String arg2 = substring(input, open_brace2 + 1, close_brace2);
     String arg3 = substring(input, open_brace3 + 1, close_brace3);
     // cond logic
@@ -568,7 +567,7 @@ size_t expand_if(MacroList *list, String *input, String *output, size_t index){
     }
     size_t close_brace3 = find_close_brace(input, open_brace3);
 
-    String arg1 = substring(input, open_brace1 + 1, close_brace1);
+    String arg1 = asubstring(input, open_brace1 + 1, close_brace1);
     String arg2 = substring(input, open_brace2 + 1, close_brace2);
     String arg3 = substring(input, open_brace3 + 1, close_brace3);
     // cond logic
