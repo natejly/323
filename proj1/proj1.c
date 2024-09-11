@@ -67,7 +67,7 @@ void append(String *str, char *other) {
 
 void concatenate(String *str, String *other){
     // Ensure there's enough capacity
-    while (str->length + other->length + 1 > str->capacity) { // +1 for null terminator
+    while (str->length + other->length + 1 > str->capacity) { 
         size_t new_capacity = str->capacity * 2;
         char *new_text = DOUBLE(str->text, new_capacity);
         
@@ -390,7 +390,7 @@ void runtime(MacroList *list, String *input, String *output) {
         switch (state) {
             case PLAIN:
                 if (input->text[i] == '\\') {
-                    state = ESCAPE;  // Switch to ESCAPE state when encountering backslash
+                    state = ESCAPE; 
                 } else {
                     // Regular character; append to output
                     temp[0] = input->text[i];
@@ -607,7 +607,6 @@ size_t expand_inc(MacroList *list, String *input, String *output, size_t index){
             fclose(file);
             return close_brace;
 }
-//The point of this macro is to delay expanding the before argument until the after argument has been expanded. The output of this macro expansion is simply BEFORE immediately followed by the expanded AFTER. Note that this changes the recursive evaluation rule, i.e. you should eagerly expand all macros in the AFTER string before touching BEFORE. This means that any new macros defined in AFTER should be in scope for the BEFORE. You may not use additional processes/threads to accomplish these actions. Here’s an example program:
 size_t expand_ea(MacroList *list, String *input, String *output, size_t index){
     size_t open_brace = index;
     size_t close_brace = find_close_brace(input, open_brace);
@@ -729,7 +728,6 @@ size_t add_def(MacroList *list, String *input, size_t index){
     }
     size_t close_brace1 = find_close_brace(input, open_brace1);
     size_t open_brace2 = close_brace1 + 1;
-    // check that the next character is a {
     if (input->text[open_brace2] != '{'){
         DIE("Expected {", open_brace2);
     }
@@ -773,11 +771,5 @@ int main(int argc, char *argv[]) {
     destroy_string(&input);
     destroy_string(&comments_removed);
     list_destroy(list);
-    // want to test replace_hash
-    // String input = make_string("Hello #world");
-    // String output = make_empty_string();
-    // String arg = make_string("world");
-    // replace_hash(&input, &output, &arg);
-    // print_string(&output);
     return 0;
 }
