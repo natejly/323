@@ -1,2 +1,0 @@
-\def{B}{buffalo}
-\expandafter{\B{}}{\undef{B}\def{B}{bison}}

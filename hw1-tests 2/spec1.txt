@@ -1,4 +1,0 @@
-\def{A}{aardvark}%
-\expandafter{\def{B}}{{\A{}}}%
-\undef{A}\def{A}{anteater}%
-\B{} = \A{}

@@ -1,5 +1,0 @@
-# DEFINE A MACRO, UNDEFINE IT, THEN TRY TO USE IT
-
-\def{MACRO}{failure}
-\undef{MACRO}
-\MACRO{}

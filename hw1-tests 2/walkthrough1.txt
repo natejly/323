@@ -1,3 +1,0 @@
-\def{prefix}{1}
-\def{suffix}{2}
-\if{}{\pre}{\suf}fix{}
