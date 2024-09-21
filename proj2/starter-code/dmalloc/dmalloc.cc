@@ -8,7 +8,16 @@
 
 // You may write code here.
 // (Helper functions, types, structs, macros, globals, etc.)
-
+struct dmalloc_statistics {
+    unsigned long long nactive;     // number of active allocations [#malloc - #free]
+    unsigned long long active_size; // number of bytes in active allocations
+    unsigned long long ntotal;      // number of allocations, total
+    unsigned long long total_size;  // number of bytes in allocations, total
+    unsigned long long nfail;       // number of failed allocation attempts
+    unsigned long long fail_size;   // number of bytes in failed allocation attempts
+    uintptr_t heap_min;             // smallest address in any region ever allocated
+    uintptr_t heap_max;             // largest address in any region ever allocated
+};
 
 /// dmalloc_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
@@ -16,9 +25,46 @@
 ///    return a unique, newly-allocated pointer value. The allocation
 ///    request was at location `file`:`line`.
 
+static dmalloc_statistics stats = {0, 0, 0, 0, 0, 0, 0, 0};
 void* dmalloc_malloc(size_t sz, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
+    // wrap the base_malloc function
+    if (sz == 0){
+        // then we must return unique pointer so set sz to 1
+        sz = 1;
+        // somehting about allocation request being at file and line
+    }
+    void* pointer = base_malloc(sz);
+    // if we have size 0
+
+    if (pointer != nullptr){
+        // then we have successfully allocated memory and will update the stats
+        stats.nactive++;
+        stats.active_size += sz;
+        stats.ntotal++;
+        stats.total_size += sz;
+        // update the heap min and max
+        unsigned long pt = (uintptr_t) pointer;
+        // if values are 0 init
+        if (stats.heap_min == 0){
+            stats.heap_min = pt;
+        }
+        if (stats.heap_max == 0){
+            stats.heap_max = pt;
+        }
+        if (pt < stats.heap_min){
+            stats.heap_min = pt;
+        }
+        if (pt > stats.heap_max){
+            stats.heap_max = pt;
+        }
+    } else {
+        // then we have not allocated memory
+        stats.nfail++;
+        stats.fail_size += sz;
+    }
+
     return base_malloc(sz);
 }
 
@@ -31,6 +77,7 @@ void* dmalloc_malloc(size_t sz, const char* file, long line) {
 void dmalloc_free(void* ptr, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
     // Your code here.
+
     base_free(ptr);
 }
 
