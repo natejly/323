@@ -2,6 +2,7 @@
 #include "dmalloc.hh"
 #include <cstdlib>
 #include <cstring>
+#include <string>
 #include <cstdio>
 #include <cinttypes>
 #include <cassert>
@@ -25,35 +26,35 @@ struct meta {
     meta* next;
     long magic;
 };
-
+// ---------the linked list graveyard------------
 struct metalist {
     meta* head;
     metalist() : head(nullptr) {}
 };
 
 metalist list;
-void insert(metalist* list, meta* node){
-    if (list->head == nullptr) {
-        list->head = node;
+void insert(metalist* llist, meta* node){
+    if (llist->head == nullptr) {
+        llist->head = node;
     } else {
-    meta* temp = list->head;
-    list->head = node;
+    meta* temp = llist->head;
+    llist->head = node;
     node->next = temp;
     }
 }
 
-meta* remove(metalist* list, meta* node){
+meta* remove(metalist* llist, meta* node){
     // head is nullptr
-    if (list->head == nullptr) {
+    if (llist->head == nullptr) {
         return nullptr;
     }
     // head is the node
-    if (list->head == node) {
-        list->head = node->next;
+    if (llist->head == node) {
+        llist->head = node->next;
         return node;
     }
     // traverse
-    meta* temp = list->head;
+    meta* temp = llist->head;
     while (temp != nullptr && temp->next != node) {
         temp = temp->next;
     }
@@ -66,10 +67,33 @@ meta* remove(metalist* list, meta* node){
 
 }
 
+struct hitter {
+    size_t size;
+    char* file;
+    long line;
+    hitter() : size(0), file(nullptr), line(0) {}
+
+};
+// -----------------------------------------------
+
 static dmalloc_statistics gstats= {0, 0, 0, 0, 0, 0, 0, 0};
 
 unordered_map<void*, unsigned int> allocs;
+unordered_map<string, hitter*> fat_allocs; 
 
+void addhitter(meta* header){
+    string key = string(header->file) + ":" + to_string(header->line);
+    if (fat_allocs.find(key) == fat_allocs.end()) {
+        hitter* temp = new hitter;
+        temp->size = header->size;
+        temp->file = header->file;
+        temp->line = header->line;
+        fat_allocs.insert(make_pair(key, temp));
+        }
+    else {
+        fat_allocs[key]->size += header->size;
+    }
+}
 /// dmalloc_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
 ///    The memory is not initialized. If `sz == 0`, then dmalloc_malloc must
@@ -134,7 +158,7 @@ void* dmalloc_malloc(size_t sz, const char* file, long line) {
     if (gstats.heap_max == 0 || r > gstats.heap_max) {
         gstats.heap_max = r;
     }
-
+    addhitter(header);
     return header->payload;
 }
 
@@ -279,7 +303,76 @@ void dmalloc_print_leak_report() {
 
 /// dmalloc_print_heavy_hitter_report()
 ///    Print a report of heavily-used allocation locations.
+// process through streams and bags algorithm
 
 void dmalloc_print_heavy_hitter_report() {
-    // Your heavy-hitters code here
+    int min_index = -1;
+
+    hitter bag[5];
+    size_t total_removed = 0;
+    // Initialize bag to store hitters
+    for (int i = 0; i < 5; i++) {
+        bag[i].size = 0;
+        bag[i].file = nullptr;
+        bag[i].line = 0;
+    }
+
+    size_t num_hitters = 0;
+    for (auto pair : fat_allocs) {
+        hitter* temp = pair.second;
+        bool inserted = false;
+
+        // Try to insert the current hitter in an empty slot in the bag
+        for (int i = 0; i < 5; i++) {
+            if (bag[i].file == nullptr) {
+                bag[i].size = temp->size;
+                bag[i].file = temp->file;
+                bag[i].line = temp->line;
+                inserted = true;
+                num_hitters++;
+                break;
+            }
+        }
+
+        if (!inserted) {
+            // If the bag is full, find the minimum element
+            min_index = 0;
+            for (int i = 1; i < 5; i++) {
+                if (bag[i].size < bag[min_index].size) {
+                    min_index = i;
+                }
+            }
+
+            // subtrace the min size from all
+            if (temp->size > bag[min_index].size) {
+                size_t min_size = bag[min_index].size;
+                // for (int i = 0; i < 5; i++) {
+                //     bag[i].size -= min_size;
+                // }
+
+                total_removed += min_size;
+                // Replace the smallest element with the new hitter
+                bag[min_index].size = temp->size;
+                bag[min_index].file = temp->file;
+                bag[min_index].line = temp->line;
+            }
+        }
+    }
+
+    // Calculate total size of all hitters (without altering sizes)
+    size_t total_size = 0;
+    for (int i = 0; i < 5; i++) {
+        total_size += bag[i].size;
+    }
+
+    // Print the heavy hitter report with actual sizes
+    for (int i = 0; i < 5; i++) {
+        if (bag[i].file != nullptr) {
+            double percent = (double)bag[i].size / (double) gstats.total_size* 100;
+            if (percent >= 15) {
+                fprintf(stdout, "HEAVY HITTER: %s:%ld: %zu bytes (~%.1f%%)\n",
+                        bag[i].file, bag[i].line, bag[i].size, percent);
+            }
+        }
+    }
 }
