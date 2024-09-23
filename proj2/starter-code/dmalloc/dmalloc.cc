@@ -5,7 +5,12 @@
 #include <cstdio>
 #include <cinttypes>
 #include <cassert>
-
+#include <unordered_map>
+#define CANARY_SIZE (64 * sizeof(long))
+#define CANARY 64
+#define DEADBEEF 0xDEADBEEF
+#define CAFEBABE 0xCAFEBABE
+using namespace std;
 // You may write code here.
 // (Helper functions, types, structs, macros, globals, etc.)
 // struct for header and underflow and overflow
@@ -18,6 +23,7 @@ struct meta {
     void* payload;
     void* overflow;
     meta* next;
+    long magic;
 };
 
 struct metalist {
@@ -62,6 +68,7 @@ meta* remove(metalist* list, meta* node){
 
 static dmalloc_statistics gstats= {0, 0, 0, 0, 0, 0, 0, 0};
 
+unordered_map<void*, unsigned int> allocs;
 
 /// dmalloc_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
@@ -74,31 +81,32 @@ static dmalloc_statistics gstats= {0, 0, 0, 0, 0, 0, 0, 0};
 void* dmalloc_malloc(size_t sz, const char* file, long line) {
     (void) file, (void) line;   // avoid uninitialized variable warnings
 
-    if (sz > (SIZE_MAX - (sizeof(meta) + 2 * sizeof(uint64_t)))) {
+    if (sz > (SIZE_MAX - (sizeof(meta) + 2 * CANARY_SIZE))) {
         gstats.nfail++;
         gstats.fail_size += sz;
         return nullptr;
     }
 
-    meta* header = (meta*) base_malloc(sz + sizeof(meta) + 2 * sizeof(uint64_t));
+    meta* header = (meta*) base_malloc(sz + sizeof(meta) + 2 * CANARY_SIZE);
 
     if (header == nullptr) {
         gstats.nfail++;
         gstats.fail_size += sz;
         return nullptr;
     }
-    insert(&list, header);
     
 
-    uint64_t* underflow_canary = (uint64_t*) ((uintptr_t) header + sizeof(meta));
+    long* underflow_canary = (long*) ((uintptr_t) header + sizeof(meta));
 
-    header->payload = (void*) ((uintptr_t) underflow_canary + sizeof(uint64_t));
+    header->payload = (void*) ((uintptr_t) underflow_canary + CANARY_SIZE);
 
-    uint64_t* overflow_canary = (uint64_t*) ((uintptr_t) header->payload + sz);
+    long* overflow_canary = (long*) ((uintptr_t) header->payload + sz);
     
     // I love me some steaks
-    *underflow_canary = 0xDEADBEEFDEADBEEF;
-    *overflow_canary = 0xDEADBEEFDEADBEEF;
+    for (size_t i = 0; i < CANARY; i++){
+        underflow_canary[i] = DEADBEEF;
+        overflow_canary[i] = DEADBEEF;
+    }
 
     // Initialize header fields
     header->size = sz;
@@ -107,13 +115,14 @@ void* dmalloc_malloc(size_t sz, const char* file, long line) {
     header->file = (char*) file;
     header->line = line;
     header->allocated = true;
+    header-> magic = CAFEBABE;
 
     // Update stats
     gstats.nactive++;
     gstats.active_size += sz;
     gstats.ntotal++;
     gstats.total_size += sz;
-
+    allocs.insert(make_pair(header, header->size));
     // Update min and max with l and r being edges
     uintptr_t l = (uintptr_t) header->payload;  // Start of user-allocated memory
     uintptr_t r = (uintptr_t) header->payload + header->size;  // End of user-allocated memory
@@ -141,37 +150,35 @@ void dmalloc_free(void* ptr, const char* file, long line) {
     if (ptr == nullptr) {
         return;
     }
-    uintptr_t addy = (uintptr_t) ptr;
-    if (addy < gstats.heap_min || addy > gstats.heap_max) {
-        // Invalid free: pointer is either not aligned or outside heap boundaries
+    meta* header = (meta*) ((uintptr_t) ptr - sizeof(meta) - CANARY_SIZE);
+    
+    if (header == nullptr) {
         fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not in heap\n", file, line, ptr);
         exit(1);
     }
-    meta* header = (meta*) ((uintptr_t) ptr - sizeof(meta) - sizeof(uint64_t));
-    
-    if (header == nullptr) {
-        // Invalid free: pointer is not aligned
+
+    uintptr_t addy = (uintptr_t) ptr;
+    if (addy < gstats.heap_min || addy > gstats.heap_max) {
         fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not in heap\n", file, line, ptr);
         exit(1);
     }
     // check that ptr is the same as the payload
-    if (header->payload != ptr || header == nullptr) {
+    if (header->payload != ptr || header->magic != CAFEBABE) {
         // Invalid free: pointer is not the same as the payload
         fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not allocated\n", file, line, ptr);
 
-        meta* current = list.head;
-        while (current != nullptr) {
-            uintptr_t start = (uintptr_t) current->payload;
-            uintptr_t end = start + current->size;
-            
-            // Check if the pointer is inside this block
-            if (addy > start && addy < end) {
-                size_t offset = addy - start;
-                fprintf(stderr, "  %s:%ld: %p is %zu bytes inside a %zu byte region allocated here\n",
-        current->file, current->line, ptr, offset, current->size);
-                exit(1);
+        for (auto pair: allocs){
+            meta *temp = (meta *)pair.first;
+            uintptr_t start = (uintptr_t)temp + sizeof(meta) + CANARY_SIZE;
+            uintptr_t fake = (uintptr_t)ptr;
+            uintptr_t end = (uintptr_t) ptr + temp->size;
+            if(fake >= start && fake < end){
+                uintptr_t offset = fake - start;
+
+                fprintf(stderr, "  %s:%ld: %p is %zd bytes inside a %zu byte region allocated here", temp->file, temp->line, ptr, offset, temp->size);
+
             }
-            current = current->next;
+
         }
         exit(1);
     }
@@ -190,17 +197,18 @@ void dmalloc_free(void* ptr, const char* file, long line) {
     // Retrieve the header from the pointer
 
     // // Retrieve the canaries
-    uint64_t* underflow_canary = (uint64_t*) ((uintptr_t) header + sizeof(meta));
-    uint64_t* overflow_canary = (uint64_t*) ((uintptr_t) ptr + header->size);
+    long* underflow_canary = (long*) ((uintptr_t) header + sizeof(meta));
+    long* overflow_canary = (long*) ((uintptr_t) ptr + header->size);
 
     // check that underflow and overflow are still deadbeef
-    if (*underflow_canary != 0xDEADBEEFDEADBEEF || *overflow_canary != 0xDEADBEEFDEADBEEF) {
-        // Memory corruption detected
-        fprintf(stderr, "MEMORY BUG: %s:%ld: detected wild write during free of pointer %p\n", file, line, ptr);
-        exit(1);
-    }
-    remove(&list, header);
+    for (size_t i = 0; i < CANARY ; ++i) {
+        if (underflow_canary[i] != DEADBEEF || overflow_canary[i] != DEADBEEF) {
+            fprintf(stderr, "MEMORY BUG: %s:%ld: detected wild write during free of pointer %p\n", file, line, ptr);
+            exit(1); 
+        }
 
+    }
+    allocs.erase(header);
 
     base_free(header);
 
@@ -261,10 +269,10 @@ void dmalloc_print_statistics() {
 
 void dmalloc_print_leak_report() {
    // run through list and print out the leaks
-    meta* temp = list.head;
-    while (temp != nullptr) {
-        printf("LEAK CHECK: %s:%ld: allocated object %p with size %zu\n",
-                   temp->file, temp->line, temp->payload, temp->size);        temp = temp->next;
+    for (auto pair : allocs){
+        meta *temp = (meta *)pair.first;
+        fprintf(stdout, "LEAK CHECK: %s:%ld: allocated object %p with size %zu\n", 
+        temp->file, temp->line, temp->payload, temp->size);
     }
 }
 
@@ -275,4 +283,3 @@ void dmalloc_print_leak_report() {
 void dmalloc_print_heavy_hitter_report() {
     // Your heavy-hitters code here
 }
-
