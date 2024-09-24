@@ -188,7 +188,6 @@ void dmalloc_free(void* ptr, const char* file, long line) {
     }
     // check that ptr is the same as the payload
     if (header->payload != ptr || header->magic != CAFEBABE) {
-        // Invalid free: pointer is not the same as the payload
         fprintf(stderr, "MEMORY BUG: %s:%ld: invalid free of pointer %p, not allocated\n", file, line, ptr);
 
         for (auto pair: allocs){
@@ -342,7 +341,6 @@ void dmalloc_print_heavy_hitter_report() {
                     min_index = i;
                 }
             }
-
             // subtrace the min size from all
             if (temp->size > bag[min_index].size) {
                 size_t min_size = bag[min_index].size;
@@ -369,7 +367,7 @@ void dmalloc_print_heavy_hitter_report() {
     for (int i = 0; i < 5; i++) {
         if (bag[i].file != nullptr) {
             double percent = (double)bag[i].size / (double) gstats.total_size* 100;
-            if (percent >= 15) {
+            if (percent >= 10) {
                 fprintf(stdout, "HEAVY HITTER: %s:%ld: %zu bytes (~%.1f%%)\n",
                         bag[i].file, bag[i].line, bag[i].size, percent);
             }

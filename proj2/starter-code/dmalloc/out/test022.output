@@ -1,3 +1,0 @@
-Bad pointer 0xc18178
-MEMORY BUG: test022.cc:10: invalid free of pointer 0xc18178, not allocated
-  test022.cc:8: 0xc18178 is 128 bytes inside a 2001 byte region allocated here

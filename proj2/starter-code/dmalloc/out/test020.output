@@ -1,2 +1,0 @@
-Will free 0x21250f8
-MEMORY BUG: test020.cc:11: invalid free of pointer 0x21250f8, double free

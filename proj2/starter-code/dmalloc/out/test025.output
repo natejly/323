@@ -1,2 +1,0 @@
-Will free 0x1d550f8
-MEMORY BUG: test025.cc:13: detected wild write during free of pointer 0x1d550f8
