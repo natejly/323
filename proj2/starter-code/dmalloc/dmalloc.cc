@@ -352,7 +352,9 @@ void dmalloc_print_heavy_hitter_report() {
                 bag[min_index].file = temp->file;
                 bag[min_index].line = temp->line;
             }
+
         }
+        base_free(temp);
     }
 
     size_t total_size = 0;
