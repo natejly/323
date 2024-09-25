@@ -93,6 +93,12 @@ void addhitter(meta* header){
         fat_allocs[key]->size += header->size;
     }
 }
+
+int compareHitters(const void* a, const void* b) {
+    hitter* hitterA = (hitter*)a;
+    hitter* hitterB = (hitter*)b;
+    return (hitterB->size - hitterA->size); 
+}
 /// dmalloc_malloc(sz, file, line)
 ///    Return a pointer to `sz` bytes of newly-allocated dynamic memory.
 ///    The memory is not initialized. If `sz == 0`, then dmalloc_malloc must
@@ -362,7 +368,8 @@ void dmalloc_print_heavy_hitter_report() {
         total_size += bag[i].size;
     }
 
-    // Print the heavy hitter report with actual sizes
+    qsort(bag, 5, sizeof(hitter), compareHitters);
+
     for (int i = 0; i < 5; i++) {
         if (bag[i].file != nullptr) {
             double percent = (double)bag[i].size / (double) gstats.total_size* 100;
