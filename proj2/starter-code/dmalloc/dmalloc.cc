@@ -8,7 +8,6 @@
 #include <cassert>
 #include <unordered_map>
 #define CANARY_SIZE (64 * sizeof(long))
-#define CANARY 64
 #define DEADBEEF 0xDEADBEEF
 #define CAFEBABE 0xCAFEBABE
 using namespace std;
@@ -66,13 +65,11 @@ meta* remove(metalist* llist, meta* node){
     return nullptr;
 
 }
-
 struct hitter {
     size_t size;
     char* file;
     long line;
     hitter() : size(0), file(nullptr), line(0) {}
-
 };
 // -----------------------------------------------
 
@@ -83,6 +80,7 @@ unordered_map<string, hitter*> fat_allocs;
 
 void addhitter(meta* header){
     string key = string(header->file) + ":" + to_string(header->line);
+    // if not in then insert
     if (fat_allocs.find(key) == fat_allocs.end()) {
         hitter* temp = new hitter;
         temp->size = header->size;
@@ -91,6 +89,7 @@ void addhitter(meta* header){
         fat_allocs.insert(make_pair(key, temp));
         }
     else {
+        // if already in increment size
         fat_allocs[key]->size += header->size;
     }
 }
@@ -119,7 +118,6 @@ void* dmalloc_malloc(size_t sz, const char* file, long line) {
         return nullptr;
     }
     
-
     long* underflow_canary = (long*) ((uintptr_t) header + sizeof(meta));
 
     header->payload = (void*) ((uintptr_t) underflow_canary + CANARY_SIZE);
@@ -127,7 +125,7 @@ void* dmalloc_malloc(size_t sz, const char* file, long line) {
     long* overflow_canary = (long*) ((uintptr_t) header->payload + sz);
     
     // I love me some steaks
-    for (size_t i = 0; i < CANARY; i++){
+    for (size_t i = 0; i < 64; i++){
         underflow_canary[i] = DEADBEEF;
         overflow_canary[i] = DEADBEEF;
     }
@@ -148,8 +146,8 @@ void* dmalloc_malloc(size_t sz, const char* file, long line) {
     gstats.total_size += sz;
     allocs.insert(make_pair(header, header->size));
     // Update min and max with l and r being edges
-    uintptr_t l = (uintptr_t) header->payload;  // Start of user-allocated memory
-    uintptr_t r = (uintptr_t) header->payload + header->size;  // End of user-allocated memory
+    uintptr_t l = (uintptr_t) header->payload;  
+    uintptr_t r = (uintptr_t) header->payload + header->size; 
 
 
     if (gstats.heap_min == 0 || l < gstats.heap_min) {
@@ -224,7 +222,7 @@ void dmalloc_free(void* ptr, const char* file, long line) {
     long* overflow_canary = (long*) ((uintptr_t) ptr + header->size);
 
     // check that underflow and overflow are still deadbeef
-    for (size_t i = 0; i < CANARY ; ++i) {
+    for (size_t i = 0; i < 64; ++i) {
         if (underflow_canary[i] != DEADBEEF || overflow_canary[i] != DEADBEEF) {
             fprintf(stderr, "MEMORY BUG: %s:%ld: detected wild write during free of pointer %p\n", file, line, ptr);
             exit(1); 
@@ -357,7 +355,6 @@ void dmalloc_print_heavy_hitter_report() {
         }
     }
 
-    // Calculate total size of all hitters (without altering sizes)
     size_t total_size = 0;
     for (int i = 0; i < 5; i++) {
         total_size += bag[i].size;
