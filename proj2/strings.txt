@@ -1,0 +1,331 @@
+/lib64/ld-linux-x86-64.so.2
+mgUa
+__cxa_finalize
+fgets
+__printf_chk
+malloc
+__libc_start_main
+signal
+fopen
+strtol
+__ctype_b_loc
+stdout
+puts
+fflush
+system
+strlen
+sleep
+getenv
+stdin
+__sprintf_chk
+exit
+__isoc99_sscanf
+__stack_chk_fail
+libc.so.6
+GLIBC_2.3
+GLIBC_2.3.4
+GLIBC_2.7
+GLIBC_2.4
+GLIBC_2.34
+GLIBC_2.2.5
+_ITM_deregisterTMCloneTable
+__gmon_start__
+_ITM_registerTMCloneTable
+PTE1
+u+UH
+Public sH
+peaking H
+is very H
+easyf
+)u	[
+AVAUATUSH
+D$X1
+\$ H
+D$(H
+T$0H
+D$8H
+T$@H
+D$HH
+D$XdH+
+`[]A\A]A^
+ATUSH
+[]A\
+ATUSH
+SATD
+[]A\
+***truncH
+ated***
+AVAUATUSH
+A<=w
+[]A\A]A^
+Unable tH
+o connecH
+t to serH
+ATUSH
+[]A\
+%s: Error: Couldn't open %s
+Usage: %s [<input_file>]
+That's number 2.  Keep going!
+One step closer.
+Good work!  On to the next...
+Two more!
+One more!
+Welcome to my fiendish little bomb. You have 10 phases with
+which to blow yourself up. Have a nice day!
+Phase 1 defused. How about the next one?
+So you got that one.  Try this one.
+Impressive, but how about this?
+Good, but you're not done yet.
+GAH I will have my revenge!!!!!!!!!!
+Public speaking is very easy.
+%d %c %d
+I am for medical liability at the federal level.
+So you think you can stop the bomb with ctrl-c, do you?
+ERROR: Input string is too large.
+Your instructor has been notified.
+Congratulations! You've defused the bomb!
+Your instructor has been notified and will verify your solution.
+Well...
+OK. :-)
+Invalid phase%s
+Initialization error:
+defused
+exploded
+%d:%s:%d:%s
+BOOM!!!
+The bomb has blown up.
+%d %d %d %d %d %d
+Error: Premature EOF on stdin
+GRADE_BOMB
+Error: Input line too long
+%%%02X
+https://bomb.joshchang.co
+ping
+curl --max-time 30 "%s/%s" 2>/dev/null >/dev/null
+curl --max-time 30 -X POST "%s/%s" 2>/dev/null >/dev/null
+submit?netId=%s&result=%s&secret=%s
+RyWMChDQ40qest6nlApIOKJYtOloFAFU
+:*3$"
+njl36
+GCC: (Ubuntu 11.4.0-1ubuntu1~22.04) 11.4.0
+=Welcome to my fiendish little bomb. You have 10 phases with
+-which to blow yourself up. Have a nice day!
+*Phase 1 defused. How about the next one?
+That's number 2.  Keep going!
+One step closer.
+%So you got that one.  Try this one.
+Good work!  On to the next...
+!Impressive, but how about this?
+ Good, but you're not done yet.
+Two more!
+One more!
+&GAH I will have my revenge!!!!!!!!!!
+:!	;
+;!$9
+printf
+__off_t
+_IO_read_ptr
+_chain
+size_t
+_shortbuf
+_IO_buf_base
+long long unsigned int
+read_line
+long long int
+phase_defused
+_fileno
+_IO_read_end
+phase_10
+_flags
+_IO_buf_end
+_cur_column
+_IO_codecvt
+__printf_chk
+_old_offset
+infile
+initialize_bomb
+_IO_marker
+stdin
+_freeres_buf
+_IO_write_ptr
+short unsigned int
+_IO_save_base
+_lock
+_flags2
+_mode
+__builtin_puts
+_IO_write_end
+_IO_lock_t
+_IO_FILE
+fopen
+_markers
+unsigned char
+short int
+_IO_wide_data
+_vtable_offset
+exit
+input
+__off64_t
+_IO_read_base
+_IO_save_end
+__fmt
+__pad5
+_unused2
+argv
+phase_1
+phase_2
+phase_3
+phase_4
+phase_5
+phase_6
+phase_7
+phase_8
+phase_9
+GNU C17 11.4.0 -m64 -mtune=generic -march=x86-64 -ggdb -O1 -fasynchronous-unwind-tables -fstack-protector-strong -fstack-clash-protection -fcf-protection
+_IO_backup_base
+argc
+_freeres_list
+main
+_IO_write_base
+bomb.c
+/home/accts/jdc233/cs323/bomb-generation/src
+/usr/include/x86_64-linux-gnu/bits
+/usr/lib/gcc/x86_64-linux-gnu/11/include
+/usr/include/x86_64-linux-gnu/bits/types
+/usr/include
+stdio2.h
+stddef.h
+types.h
+struct_FILE.h
+stdio.h
+phases.h
+support.h
+stdlib.h
+<built-in>
+Scrt1.o
+__abi_tag
+crtstuff.c
+deregister_tm_clones
+__do_global_dtors_aux
+completed.0
+__do_global_dtors_aux_fini_array_entry
+frame_dummy
+__frame_dummy_init_array_entry
+bomb.c
+phases.c
+array.0
+support.c
+sig_handler
+driverlib.c
+__FRAME_END__
+_DYNAMIC
+__GNU_EH_FRAME_HDR
+_GLOBAL_OFFSET_TABLE_
+skip
+getenv@GLIBC_2.2.5
+phase_defused
+__libc_start_main@GLIBC_2.34
+_ITM_deregisterTMCloneTable
+stdout@GLIBC_2.2.5
+puts@GLIBC_2.2.5
+stdin@GLIBC_2.2.5
+_edata
+_fini
+strlen@GLIBC_2.2.5
+__stack_chk_fail@GLIBC_2.4
+system@GLIBC_2.2.5
+num_input_strings
+phase_5
+initialize_bomb_solve
+phase_7
+blank_line
+phase_9
+phase_3
+phase_1
+invalid_phase
+init_driver
+send_request
+node3
+fgets@GLIBC_2.2.5
+explode_bomb
+node1
+__data_start
+signal@GLIBC_2.2.5
+phase_10
+node5
+__gmon_start__
+strtol@GLIBC_2.2.5
+__dso_handle
+fun9
+_IO_stdin_used
+string_length
+url_encode
+malloc@GLIBC_2.2.5
+fflush@GLIBC_2.2.5
+__isoc99_sscanf@GLIBC_2.7
+func6
+_end
+infile
+__bss_start
+userid
+main
+__printf_chk@GLIBC_2.3.4
+read_line
+strings_not_equal
+phase_4
+phase_8
+fopen@GLIBC_2.2.5
+phase_6
+scratch
+driver_post
+send_msg
+phase_2
+exit@GLIBC_2.2.5
+bomb_id
+__TMC_END__
+_ITM_registerTMCloneTable
+node2
+node4
+sleep@GLIBC_2.2.5
+node6
+__cxa_finalize@GLIBC_2.2.5
+_init
+read_six_numbers
+initialize_bomb
+__ctype_b_loc@GLIBC_2.3
+__sprintf_chk@GLIBC_2.3.4
+.symtab
+.strtab
+.shstrtab
+.interp
+.note.gnu.property
+.note.gnu.build-id
+.note.ABI-tag
+.gnu.hash
+.dynsym
+.dynstr
+.gnu.version
+.gnu.version_r
+.rela.dyn
+.rela.plt
+.init
+.plt.got
+.plt.sec
+.text
+.fini
+.rodata
+.eh_frame_hdr
+.eh_frame
+.init_array
+.fini_array
+.dynamic
+.data
+.bss
+.comment
+.debug_aranges
+.debug_info
+.debug_abbrev
+.debug_line
+.debug_str
+.debug_line_str
+.debug_loclists
