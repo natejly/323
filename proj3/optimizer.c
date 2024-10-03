@@ -13,9 +13,9 @@ void Optimizer(NodeList *funcdecls) {
         if(ConstProp(funcdecls)){
             changes = true;
         }
-        if(DeadAssign(funcdecls)){
-            changes = true;
-        }   
+        // if(DeadAssign(funcdecls)){
+        //     changes = true;
+        // }   
         funcdecls = funcdecls->next;
     }
 

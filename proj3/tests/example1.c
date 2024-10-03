@@ -12,4 +12,3 @@ long foo(long arg1, long arg2) {
     long temp11 = - temp10;
     return temp11;
  }
- 

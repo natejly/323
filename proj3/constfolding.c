@@ -88,11 +88,20 @@ WHEREVER APPLICABLE.
 ******************************************************************************************************
 */
 long ConstFoldPerStatement(Node* stmtNodeRight){
+    if (stmtNodeRight == NULL) {
+        return -1;
+    }
     long result;
     Node *right;
     Node *left;
     right = stmtNodeRight->right;
     left = stmtNodeRight->left;
+    // null checks
+
+    if (left == NULL || right == NULL){
+        return -1;
+    }
+
     if (left->exprCode == CONSTANT && right->exprCode == CONSTANT) {
         result = CalcExprValue(stmtNodeRight);
         printf("result is %ld \n", result);
@@ -113,6 +122,7 @@ void ConstFoldPerFunction(Node* funcNode) {
       long result;
       NodeList* statements = funcNode->statements;
       while(statements != NULL) {
+        if (statements->node != NULL){
           stmtNodeRight = statements->node->right;
           // check if the statement is an assignment 
           if (statements->node->stmtCode == ASSIGN) {
@@ -137,6 +147,7 @@ void ConstFoldPerFunction(Node* funcNode) {
 
               }
           }
+        }
           // then left is variable and right is the expression
           // if right is an expression 
           // if right is an operation then call exr val and replace the value
@@ -164,10 +175,14 @@ THIS FUNCTION ENSURES THAT THE CONSTANT FOLDING OPTIMIZATION IS DONE FOR EVERY F
 
 bool ConstantFolding(NodeList* list) {
     madeChange = false;
+    size_t functionnum = 0;
     while(list != NULL) {
+        printf(" on function %zu",functionnum);
+
         ConstFoldPerFunction(list->node);
 
 	    list = list->next;
+        functionnum++;
     }
     return madeChange;
 }
