@@ -3,10 +3,9 @@
 
 void Optimizer(NodeList *funcdecls) {
     // run through list
-    while(funcdecls != NULL){
-        Node *node = funcdecls->node;
-        // get expressions 
-        // if expression check if we can fold
+    while (funcdecls != NULL) {
+        // run through each function
+        ConstFoldPerFunction(funcdecls->node);
         funcdecls = funcdecls->next;
     }
 // constant folding (solve expressions a = 3+ 5, a = 8)

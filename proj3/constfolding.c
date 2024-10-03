@@ -30,6 +30,7 @@ long CalcExprValue(Node* node)
      leftNode = node->left;
      rightNode = node->right; 
      switch(node->opCode){
+        // print opcode
          case MULTIPLY:
              if(leftNode->value == 1) {
                  result = rightNode->value;
@@ -88,11 +89,20 @@ WHEREVER APPLICABLE.
 */
 long ConstFoldPerStatement(Node* stmtNodeRight){
     long result;
-    /*
-    *************************************************************************************
-          TODO: YOUR CODE HERE
-    **************************************************************************************
-    */                                                                                                         
+    Node *right;
+    Node *left;
+    right = stmtNodeRight->right;
+    left = stmtNodeRight->left;
+
+    // check that left and right vals are numbers
+    if (right->type == CONSTANT && left->type == CONSTANT) {
+            result = CalcExprValue(stmtNodeRight);
+            printf("result: %ld\n", result);
+    }
+
+
+    // check if the statement is an assignment
+                                                                                                       
     return -1;
 }
 
@@ -109,12 +119,23 @@ void ConstFoldPerFunction(Node* funcNode) {
       NodeList* statements = funcNode->statements;
       while(statements != NULL) {
           stmtNodeRight = statements->node->right;
-          /*
-          *************************************************************************************
-		TODO: YOUR CODE HERE
-          **************************************************************************************
-          */                                                                                                                               
-	  statements = statements->next;
+          // check if the statement is an assignment 
+          if (statements->node->stmtCode == ASSIGN) {
+              // check if the right side of the assignment is an expression
+              if (stmtNodeRight->type == EXPRESSION) {
+                
+                  // call the constant folding function
+                  ConstFoldPerStatement(stmtNodeRight);
+                  // if the result is not -1 then replace the right side of the assignment with the constant value
+              }
+          }
+          // then left is variable and right is the expression
+          // if right is an expression 
+          // if right is an operation then call exr val and replace the value
+        // make sure we free
+
+                                                                                                                                  
+	    statements = statements->next;
       }
      
 }
