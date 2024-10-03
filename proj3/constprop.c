@@ -86,24 +86,47 @@ refConst* LookupConstList(char* name) {
 void TrackConst(NodeList* statements) {
        Node* node;
        while(statements != NULL) {
-	node = statements->node;
-            /*
-             ****************************************
-                     TODO : YOUR CODE HERE
-             ****************************************
-            */
+	    node = statements->node;
+        // for each statement
+        // if the statement is an assignment
+        if (node->stmtCode == ASSIGN){
+            // if right side is expression
+            if (node->right->exprCode == CONSTANT){
+                // update the constant list
+                printf("adding %s %ld\n", node->name, node->right->value);
+                UpdateConstList(node->name, node->right->value);
+            }
+        }
+
         statements = statements->next;
     }
 }
 
+void ReplaceConst(NodeList* statements){
+    // using pairs in const list replace
+    Node* node;
+    refConst* temp;
+    while(statements != NULL) {
+        node = statements->node;
+        if (node->stmtCode == ASSIGN){
+            // if we have variable assignment lookup
+            if (node->right->exprCode == VARIABLE){
+                temp = LookupConstList(node->right->name);
+                if (temp != NULL){
+                    // if found in list replace
+                    node->right->exprCode = CONSTANT;
+                    node->right->value = temp->val;
+                }
+            }
+        }
+        statements = statements->next;
+    }
+}
 
 bool ConstProp(NodeList* worklist) {
     while(worklist!=NULL){
-            /*
-             ****************************************
-                     TODO : YOUR CODE HERE
-             ****************************************
-             */
+        TrackConst(worklist->node->statements);
+        ReplaceConst(worklist->node->statements);
         worklist = worklist->next;
     }
     return madeChange;
