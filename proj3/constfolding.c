@@ -93,16 +93,11 @@ long ConstFoldPerStatement(Node* stmtNodeRight){
     Node *left;
     right = stmtNodeRight->right;
     left = stmtNodeRight->left;
-
-    // check that left and right vals are numbers
-    if (right->type == CONSTANT && left->type == CONSTANT) {
-            result = CalcExprValue(stmtNodeRight);
-            printf("result: %ld\n", result);
-    }
-
-
-    // check if the statement is an assignment
-                                                                                                       
+    if (left->exprCode == CONSTANT && right->exprCode == CONSTANT) {
+        result = CalcExprValue(stmtNodeRight);
+        printf("result is %ld \n", result);
+        return result;
+    }                                                                                              
     return -1;
 }
 
@@ -125,8 +120,21 @@ void ConstFoldPerFunction(Node* funcNode) {
               if (stmtNodeRight->type == EXPRESSION) {
                 
                   // call the constant folding function
-                  ConstFoldPerStatement(stmtNodeRight);
-                  // if the result is not -1 then replace the right side of the assignment with the constant value
+                  result = ConstFoldPerStatement(stmtNodeRight);
+                  // if the result is not -1 then we can replace the expression with the constant
+                  if (result != -1) {
+                      // free the expression
+                      free(stmtNodeRight);
+                      // create a new node
+                      Node* newNode = AllocateNode();
+                      newNode->type = EXPRESSION;
+                      newNode->exprCode = CONSTANT;
+                      newNode->value = result;
+                      // replace the expression with the constant
+                      statements->node->right = newNode;
+                      madeChange = true;
+                  }
+
               }
           }
           // then left is variable and right is the expression
