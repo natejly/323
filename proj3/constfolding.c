@@ -165,11 +165,8 @@ THIS FUNCTION ENSURES THAT THE CONSTANT FOLDING OPTIMIZATION IS DONE FOR EVERY F
 bool ConstantFolding(NodeList* list) {
     madeChange = false;
     while(list != NULL) {
-          /*
-          *************************************************************************************
-		TODO: YOUR CODE HERE
-          **************************************************************************************
-          */
+        ConstFoldPerFunction(list->node);
+
 	    list = list->next;
     }
     return madeChange;

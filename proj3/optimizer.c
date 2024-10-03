@@ -2,10 +2,13 @@
 
 
 void Optimizer(NodeList *funcdecls) {
+    bool folded = false;
     // run through list
     while (funcdecls != NULL) {
         // run through each function
-        ConstFoldPerFunction(funcdecls->node);
+        if(ConstantFolding(funcdecls)){
+            folded = true;
+        }
         funcdecls = funcdecls->next;
     }
 // constant folding (solve expressions a = 3+ 5, a = 8)
