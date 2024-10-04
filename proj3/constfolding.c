@@ -134,7 +134,7 @@ void ConstFoldPerFunction(Node* funcNode) {
                   // if the result is not -1 then we can replace the expression with the constant
                   if (result != -1) {
                       // free the expression
-                      free(stmtNodeRight);
+                      FreeExpression(stmtNodeRight);
                       // create a new node
                       Node* newNode = AllocateNode();
                       newNode->type = EXPRESSION;

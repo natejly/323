@@ -135,8 +135,6 @@ void ReplaceConst(NodeList* statements){
             }
             if (node->right->exprCode == OPERATION){
                 // also check for functions calls on right side
-
-
                 // printf("rhs is opp\n");
                 if(node->right->left != NULL){
                 if (node->right->left->exprCode == VARIABLE){
@@ -172,8 +170,10 @@ bool ConstProp(NodeList* worklist) {
     while(worklist!=NULL){
         TrackConst(worklist->node->statements);
         ReplaceConst(worklist->node->statements);
-        worklist = worklist->next;
+        worklist = 
+        worklist->next;
     }
+    FreeConstList();
     return madeChange;
 }
 
