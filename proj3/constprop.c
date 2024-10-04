@@ -122,6 +122,8 @@ void ReplaceConst(NodeList* statements){
 
             if (node->right->exprCode == OPERATION){
                 printf("rhs is epression\n");
+                if(node->right->left != NULL){
+
                 if (node->right->left->exprCode == VARIABLE){
                     temp = LookupConstList(node->right->left->name);
                     printf("looking up %s\n", node->right->left->name);
@@ -130,6 +132,9 @@ void ReplaceConst(NodeList* statements){
                         node->right->left->value = temp->val;
                     }
                 }
+                }
+                // check to make sure right is not null
+                if(node->right->right != NULL){
                 if (node->right->right->exprCode == VARIABLE){
                     temp = LookupConstList(node->right->right->name);
                     printf("looking up %s\n", node->right->right->name);
@@ -137,6 +142,7 @@ void ReplaceConst(NodeList* statements){
                         node->right->right->exprCode = CONSTANT;
                         node->right->right->value = temp->val;
                     }
+                }
                 }
             }
         }
