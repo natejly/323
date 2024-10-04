@@ -94,6 +94,7 @@ void TrackConst(NodeList* statements) {
             if (node->right->exprCode == CONSTANT){
                 // update the constant list
                 UpdateConstList(node->name, node->right->value);
+                printf("added %s %ld\n", node->name, node->right->value);
             }
         }
 
@@ -111,10 +112,31 @@ void ReplaceConst(NodeList* statements){
             // if we have variable assignment lookup
             if (node->right->exprCode == VARIABLE){
                 temp = LookupConstList(node->right->name);
+                printf("looking up %s\n", node->right->name);
                 if (temp != NULL){
                     // if found in list replace
                     node->right->exprCode = CONSTANT;
                     node->right->value = temp->val;
+                }
+            }
+
+            if (node->right->exprCode == OPERATION){
+                printf("rhs is epression\n");
+                if (node->right->left->exprCode == VARIABLE){
+                    temp = LookupConstList(node->right->left->name);
+                    printf("looking up %s\n", node->right->left->name);
+                    if (temp != NULL){
+                        node->right->left->exprCode = CONSTANT;
+                        node->right->left->value = temp->val;
+                    }
+                }
+                if (node->right->right->exprCode == VARIABLE){
+                    temp = LookupConstList(node->right->right->name);
+                    printf("looking up %s\n", node->right->right->name);
+                    if (temp != NULL){
+                        node->right->right->exprCode = CONSTANT;
+                        node->right->right->value = temp->val;
+                    }
                 }
             }
         }

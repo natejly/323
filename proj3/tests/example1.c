@@ -9,6 +9,6 @@ long foo(long arg1, long arg2) {
     long temp8 = temp7 ^ temp6;
     long temp9 = temp8 >> 2;
     long temp10 = temp9 << 2;
-    long temp11 = - temp10;
+    long temp11 = -temp10;
     return temp11;
  }
