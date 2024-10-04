@@ -110,6 +110,20 @@ void ReplaceConst(NodeList* statements){
         node = statements->node;
         if (node->stmtCode == ASSIGN){
             // if we have variable assignment lookup
+            // print expression code
+            if (node->right->opCode == FUNCTIONCALL){
+                NodeList *args = node->right->arguments;
+                while(args != NULL){
+                    if (args->node->exprCode == VARIABLE){
+                        temp = LookupConstList(args->node->name);
+                        if (temp != NULL){
+                            args->node->exprCode = CONSTANT;
+                            args->node->value = temp->val;
+                        }
+                    }
+                    args = args->next;
+                }
+            }
             if (node->right->exprCode == VARIABLE){
                 temp = LookupConstList(node->right->name);
                 // printf("looking up %s\n", node->right->name);
@@ -119,11 +133,12 @@ void ReplaceConst(NodeList* statements){
                     node->right->value = temp->val;
                 }
             }
-
             if (node->right->exprCode == OPERATION){
+                // also check for functions calls on right side
+
+
                 // printf("rhs is opp\n");
                 if(node->right->left != NULL){
-
                 if (node->right->left->exprCode == VARIABLE){
                     temp = LookupConstList(node->right->left->name);
                     // printf("looking up %s\n", node->right->left->name);
@@ -144,6 +159,9 @@ void ReplaceConst(NodeList* statements){
                     }
                 }
                 }
+                
+                    
+
             }
         }
         statements = statements->next;

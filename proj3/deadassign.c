@@ -144,6 +144,7 @@ void TrackRef(Node* funcNode) {
      while(statements != NULL) {
       // add all rhs variables to ref list
         node = statements->node;
+
         if (node->stmtCode == ASSIGN) {
           Node *rhs = node->right;
           // idk fix this part
@@ -155,6 +156,21 @@ void TrackRef(Node* funcNode) {
       if (node->stmtCode == RETURN) {
         UpdateRef(node);
       }
+      // add function args too
+      if(node->right != NULL){
+      if (node->right->opCode == FUNCTIONCALL) {
+        NodeList *args = node->right->arguments;
+        while(args != NULL) {
+          if(args->node->exprCode == VARIABLE) {
+            if(!VarExists(args->node->name)) {
+              UpdateRefVarList(args->node->name);
+            }
+          }
+          args = args->next;
+        }
+      }
+      }
+
 	  statements = statements->next;
      }
 
