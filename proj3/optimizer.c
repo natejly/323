@@ -1,22 +1,23 @@
 #include "optimizer.h"
 
-
 void Optimizer(NodeList *funcdecls) {
     bool changes = true;
 
-    // run through list
-    while (funcdecls != NULL) {
-        if(ConstantFolding(funcdecls)){
-            changes = true;
+    while (changes) {
+        changes = false;
+        NodeList *current = funcdecls; 
+
+        while (current != NULL) {
+            if (ConstantFolding(current)) {
+                changes = true; 
+            }
+            if (ConstProp(current)) {
+                changes = true; 
+            }
+            if (DeadAssign(current)) {
+                changes = true;  
+            }
+            current = current->next; 
         }
-        if(ConstProp(funcdecls)){
-            changes = true;
-        }
-        // if(DeadAssign(funcdecls)){
-        //     changes = true;
-        // }   
-        funcdecls = funcdecls->next;
     }
-    
-    
 }

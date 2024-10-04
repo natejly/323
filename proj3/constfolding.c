@@ -104,7 +104,7 @@ long ConstFoldPerStatement(Node* stmtNodeRight){
 
     if (left->exprCode == CONSTANT && right->exprCode == CONSTANT) {
         result = CalcExprValue(stmtNodeRight);
-        printf("result is %ld \n", result);
+        // printf("result is %ld \n", result);
         return result;
     }                                                                                              
     return -1;
@@ -177,7 +177,7 @@ bool ConstantFolding(NodeList* list) {
     madeChange = false;
     size_t functionnum = 0;
     while(list != NULL) {
-        printf(" on function %zu",functionnum);
+        // printf(" on function %zu",functionnum);
 
         ConstFoldPerFunction(list->node);
 

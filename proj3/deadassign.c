@@ -96,11 +96,11 @@ void PrintRefVarList() {
     refVar *node;
     node = head;
     if(node==NULL) {
-        printf("\nList is empty"); 
+        // printf("\nList is empty"); 
         return;
     }
     while(node != NULL) {
-        printf("\t %s", node->name);
+        // printf("\t %s", node->name);
         node = node->next;
     }
 }
@@ -180,7 +180,7 @@ NodeList* RemoveDead(NodeList* statements) {
             if (!VarExists(name)) {
                 remove = true;
                 change = 1;
-                printf("Removing %s\n", name);
+                // printf("Removing %s\n", name);
             }
         }
 
@@ -193,8 +193,6 @@ NodeList* RemoveDead(NodeList* statements) {
                 prev->next = current->next;
                 current = current->next;
             }
-            // free(tmp->node); 
-            // free(tmp);       
         } else {
             prev = current;
             current = current->next;
@@ -219,7 +217,7 @@ bool DeadAssign(NodeList* worklist) {
    while(worklist != NULL) {
         init();
         TrackRef(worklist->node);
-        printf("Printing ref list\n");
+        // printf("Printing ref list\n");
         PrintRefVarList();
         worklist->node->statements = RemoveDead(worklist->node->statements);
         FreeList();
