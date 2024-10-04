@@ -147,10 +147,9 @@ void TrackRef(Node* funcNode) {
         if (node->stmtCode == ASSIGN) {
           Node *rhs = node->right;
           // idk fix this part
-            UpdateRef(node);
+            UpdateRef(rhs);
+            // recursively check for variables in expression            
 
-
-          
         }
       // check return statement too
       if (node->stmtCode == RETURN) {
