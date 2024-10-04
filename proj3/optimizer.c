@@ -19,7 +19,6 @@ void Optimizer(NodeList *funcdecls) {
             }
             current = current->next; 
         }
-                    changes = false;
 
     }
 
