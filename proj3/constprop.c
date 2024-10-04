@@ -93,7 +93,6 @@ void TrackConst(NodeList* statements) {
             // if right side is expression
             if (node->right->exprCode == CONSTANT){
                 // update the constant list
-                printf("adding %s %ld\n", node->name, node->right->value);
                 UpdateConstList(node->name, node->right->value);
             }
         }

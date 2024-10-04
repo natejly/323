@@ -142,11 +142,23 @@ void TrackRef(Node* funcNode) {
      NodeList* statements = funcNode->statements;
      Node *node;
      while(statements != NULL) {
-        /*****************************************
-              TODO : YOUR CODE HERE
-        *****************************************/        
+      // add all rhs variables to ref list
+        node = statements->node;
+        if (node->stmtCode == ASSIGN) {
+          Node *rhs = node->right;
+          // idk fix this part
+            UpdateRef(node);
+
+
+          
+        }
+      // check return statement too
+      if (node->stmtCode == RETURN) {
+        UpdateRef(node);
+      }
 	  statements = statements->next;
      }
+
 }
 
 /*
@@ -156,24 +168,43 @@ void TrackRef(Node* funcNode) {
 ****************************************************************
 */
 NodeList* RemoveDead(NodeList* statements) {
-    refVar* varNode;
-    NodeList *prev, *tmp, *first;
-        /*
-         ****************************************
-              TODO : YOUR CODE HERE
-         ****************************************
-        */
-    while(statements != NULL) {
-        /*
-         ****************************************
-              TODO : YOUR CODE HERE
-         ****************************************
-        */
-        statements = statements->next;
+    NodeList *prev = NULL;
+    NodeList *current = statements;
+    NodeList *head = statements; 
+
+    while (current != NULL) {
+        Node* node = current->node;
+        bool remove = false;
+
+        if (node->stmtCode == ASSIGN) {
+            char* name = node->name;
+            if (!VarExists(name)) {
+                remove = true;
+                change = 1;
+                printf("Removing %s\n", name);
+            }
+        }
+
+        if (remove) {
+            NodeList* tmp = current;
+            if (prev == NULL) {
+                head = current->next;
+                current = head;
+            } else {
+                prev->next = current->next;
+                current = current->next;
+            }
+            // free(tmp->node); 
+            // free(tmp);       
+        } else {
+            prev = current;
+            current = current->next;
+        }
     }
-  
-   return first;
+
+    return head;
 }
+
 
 /*
 ********************************************************************
@@ -183,12 +214,16 @@ NodeList* RemoveDead(NodeList* statements) {
 */
 bool DeadAssign(NodeList* worklist) {
    bool madeChange = false;
+   // innit ref
+    change = 0;
+
    while(worklist != NULL) {
-            /*
-             ****************************************
-              TODO : YOUR CODE HERE
-             ****************************************
-             */
+        init();
+        TrackRef(worklist->node);
+        printf("Printing ref list\n");
+        PrintRefVarList();
+        worklist->node->statements = RemoveDead(worklist->node->statements);
+        FreeList();
         worklist = worklist->next;
     }
     if(change==1) madeChange=true;

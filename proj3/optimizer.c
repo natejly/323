@@ -7,15 +7,15 @@ void Optimizer(NodeList *funcdecls) {
     while (funcdecls != NULL) {
         // run through each function
         // this logic isn't right but just here for now
-        if(ConstantFolding(funcdecls)){
-            changes = true;
-        }
-        if(ConstProp(funcdecls)){
-            changes = true;
-        }
-        // if(DeadAssign(funcdecls)){
+        // if(ConstantFolding(funcdecls)){
         //     changes = true;
-        // }   
+        // }
+        // if(ConstProp(funcdecls)){
+        //     changes = true;
+        // }
+        if(DeadAssign(funcdecls)){
+            changes = true;
+        }   
         funcdecls = funcdecls->next;
     }
 
