@@ -449,7 +449,11 @@ void ProcessStatements(NodeList* statements) {
 
             // right is an expression
             if (right->exprCode == OPERATION){
+                if(right->opCode == FUNCTIONCALL){
+                    varCounter += 6;
+                }else{
                 varCounter += 2;
+                }
             }else{
                 // right is a constant
                 varCounter++;
@@ -470,6 +474,7 @@ void ProcessStatements(NodeList* statements) {
     // move stack poitner back
 }
     fprintf(fptr, "\naddq $%d, %%rsp", varCounter*8);
+    // we need to also check for variables in function args
 }
 
 /*
@@ -519,7 +524,7 @@ void processAssign(Node* statement) {
 
     // add varname to the list
     LongToCharOffset();    
-    char* varloc = lastOffsetUsed;           
+    char* varloc = strdup(lastOffsetUsed);
     AddVarInfo(statement->name, lastOffsetUsed, INVAL, false);
 
 
@@ -539,15 +544,54 @@ void processAssign(Node* statement) {
         }
     } 
     // then we need to save the value in rax to the variable
+    // this is working
     fprintf(fptr, "\nmovq %%rax, %s", varloc);
 }
 
 void processCall(Node* node){
-    //callq
+    int i = 0; // Argument index
+
+    // get the arguments
+    NodeList* arguments = node->arguments;
+
+    // put the arguments on the stack
+    NodeList* argPtr = arguments;
+        while(argPtr != NULL) {
+
+        Node* arg = argPtr->node;
+            // args can be variables or constants
+            // char array with registers list
+            char* regList[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+            // get loc of arg
+            
+            if(arg->exprCode == CONSTANT){
+                ProcessConstant(arg);
+                char* loc = LookUpVarInfo("", arg->value);
+                // Move the argument from the stack location to the register
+                fprintf(fptr, "\nmovq %s, %s", loc, regList[i]);
+            }else{
+            char* loc = LookUpVarInfo(arg->name, INVAL);
+            // Move the argument from the stack location to the register
+            
+            fprintf(fptr, "\nmovq %s, %s", loc, regList[i]);
+            }
+
+        i++;
+
+        argPtr = argPtr->next;
+    }
+
+    
     fprintf(fptr, "\ncallq %s", node->left->name);
+
 }
 
 void processOperation(Node* node){
+    // special unary
+    if(node->opCode == NEGATE){
+        fprintf(fptr, "\nnegq %%rax");
+        return;
+    }
 
     Node* left = node->left;
     Node* right = node->right;
@@ -570,7 +614,6 @@ void processOperation(Node* node){
     }
     char* opstring = "";
     switch (node->opCode){
-
         case ADD:
             opstring = "addq";
             break;
@@ -581,10 +624,9 @@ void processOperation(Node* node){
             opstring = "imulq";
             break;
         case DIVIDE:
+            fprintf(fptr, "\nxorq %%rdx, %%rdx");
+            fprintf(fptr, "\ncqto");
             opstring = "idivq";
-            break;
-        case NEGATE:
-            opstring = "negq";
             break;
         case BOR:
             opstring = "orq";
