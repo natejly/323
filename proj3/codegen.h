@@ -87,3 +87,6 @@ void Codegen(NodeList* funcdecls);
   ADD DECLARATIONS OF ANY FUNCTIONS YOU ADD BELOW THIS LINE
 ************************************************************************
 */
+
+void processOperation(Node* node);
+void processAssign(Node* statement);
