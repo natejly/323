@@ -465,12 +465,9 @@ void ProcessStatements(NodeList* statements) {
         Node* statement = statements->node;
         if (statement->stmtCode == ASSIGN){
             processAssign(statement);
-
-            break;
-
     }
+                statements = statements->next;
     // move stack poitner back
-
 }
     fprintf(fptr, "\naddq $%d, %%rsp", varCounter*8);
 }
@@ -518,19 +515,31 @@ void Codegen(NodeList* worklist) {
 
 
 void processAssign(Node* statement) {
-    Node* left = statement->left;
-
     Node* right = statement->right;
 
+    // add varname to the list
+    LongToCharOffset();    
+    char* varloc = lastOffsetUsed;           
+    AddVarInfo(statement->name, lastOffsetUsed, INVAL, false);
+
+
+
     if (right->exprCode == CONSTANT) {
-        ProcessConstant(right);  
+        ProcessConstant(right);
+        fprintf(fptr, "\nmovq %s, %%rax", LookUpVarInfo("", right->value));
+    } else if (right->exprCode == VARIABLE) {
+        char* loc = LookUpVarInfo(right->name, INVAL);
+        fprintf(fptr, "\nmovq %s, %%rax", loc);
     } else if (right->exprCode == OPERATION) {
         processOperation(right);
-    } else {
-        // also need to check for function calls
+    } else if (right->exprCode == FUNCTIONCALL) {
+        // Handle function call if necessary
+    }
+    // then we need to save the value in rax to the variable
+    fprintf(fptr, "\nmovq %%rax, %s", varloc);
+    
+}
 
-}
-}
 
 void processOperation(Node* node){
     Node* left = node->left;
@@ -585,7 +594,6 @@ void processOperation(Node* node){
         case BSHL:
             opstring = "shl";
             break;
-        // move rax into rbx
     }
     if (right->exprCode == VARIABLE) {
         char* loc = LookUpVarInfo(right->name, INVAL);
@@ -595,7 +603,6 @@ void processOperation(Node* node){
         fprintf(fptr, "\n%s %s, %%rax", opstring, loc);
     }
             //IDK IF THIS WORKS
-            fprintf(fptr, "\nmovq %%rax, %%rbx");
 
 
 }
