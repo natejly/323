@@ -638,11 +638,11 @@ void processOperation(Node* node){
             opstring = "xorq";
             break;
         case BSHR:
-            opstring = "shr";
-            break;
+            fprintf(fptr, "\nshr $%ld, %%rax", right->value);
+            return;
         case BSHL:
-            opstring = "shl";
-            break;
+            fprintf(fptr, "\nshl $%ld, %%rax", right->value);
+            return;
     }
     if (right->exprCode == VARIABLE) {
         char* loc = LookUpVarInfo(right->name, INVAL);
