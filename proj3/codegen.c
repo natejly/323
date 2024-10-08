@@ -637,13 +637,26 @@ void processOperation(Node* node){
         case BXOR:
             opstring = "xorq";
             break;
-        case BSHR:
-            fprintf(fptr, "\nshr $%ld, %%rax", right->value);
-            return;
-        case BSHL:
-            fprintf(fptr, "\nshl $%ld, %%rax", right->value);
-            return;
+        case BSHR:  
+            if (right->exprCode == CONSTANT) {
+                fprintf(fptr, "\nsar $%ld, %%rax", right->value);
+            } else if (right->exprCode == VARIABLE) {
+                char* loc = LookUpVarInfo(right->name, INVAL);
+                fprintf(fptr, "\nmovq %s, %%rbx", loc);
+                fprintf(fptr, "\nsar %%cl, %%rax");
+            }
+            return; 
+        case BSHL:   
+            if (right->exprCode == CONSTANT) {
+                fprintf(fptr, "\nshl $%ld, %%rax", right->value);
+            } else if (right->exprCode == VARIABLE) {
+                char* loc = LookUpVarInfo(right->name, INVAL);
+                fprintf(fptr, "\nmovq %s, %%rbx", loc);
+                fprintf(fptr, "\nshl %%cl, %%rax");
+            }
+            return; 
     }
+    
     if (right->exprCode == VARIABLE) {
         char* loc = LookUpVarInfo(right->name, INVAL);
         fprintf(fptr, "\n%s %s, %%rax", opstring, loc);
