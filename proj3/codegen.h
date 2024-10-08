@@ -90,3 +90,4 @@ void Codegen(NodeList* funcdecls);
 
 void processOperation(Node* node);
 void processAssign(Node* statement);
+void processCall(Node* node);

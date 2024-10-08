@@ -530,18 +530,25 @@ void processAssign(Node* statement) {
     } else if (right->exprCode == VARIABLE) {
         char* loc = LookUpVarInfo(right->name, INVAL);
         fprintf(fptr, "\nmovq %s, %%rax", loc);
-    } else if (right->exprCode == OPERATION) {
+    } 
+    else if (right->exprCode == OPERATION) {
+        if(right->opCode == FUNCTIONCALL){
+            processCall(right);
+        }else{
         processOperation(right);
-    } else if (right->exprCode == FUNCTIONCALL) {
-        // Handle function call if necessary
-    }
+        }
+    } 
     // then we need to save the value in rax to the variable
     fprintf(fptr, "\nmovq %%rax, %s", varloc);
-    
 }
 
+void processCall(Node* node){
+    //callq
+    fprintf(fptr, "\ncallq %s", node->left->name);
+}
 
 void processOperation(Node* node){
+
     Node* left = node->left;
     Node* right = node->right;
     // check if either is a constant and innit 
@@ -603,7 +610,6 @@ void processOperation(Node* node){
         fprintf(fptr, "\n%s %s, %%rax", opstring, loc);
     }
             //IDK IF THIS WORKS
-
-
 }
+
     
