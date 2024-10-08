@@ -494,7 +494,7 @@ void Codegen(NodeList* worklist) {
         InitAsm(func->name);
         PutArgumentsFromStack(func->arguments);
         ProcessStatements(func->statements);
-        PrintVarListInfo();
+        // PrintVarListInfo();
         RetAsm();
         FreeVarList();
         // reset offset
