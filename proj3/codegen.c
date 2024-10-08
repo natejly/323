@@ -352,11 +352,19 @@ void CreateRegList() {
     // Other registers: r8, r9
     // You need to decide which registers you will add in the register list 
     // use. Can you use all of the above registers?
-    /*
-     ****************************************
-              TODO : YOUR CODE HERE
-     ***************************************
-    */
+    AddRegInfo("%rax", 1); //ret
+    AddRegInfo("%rbx", 1); // storage
+    AddRegInfo("%rdi", 1); //1st arg
+    AddRegInfo("%rsi", 1); //2nd arg
+    AddRegInfo("%rdx", 1); //3rd arg
+    AddRegInfo("%rcx", 1); //4th arg
+    AddRegInfo("%r8", 1); //5th arg
+    AddRegInfo("%r9", 1); //6th arg
+    AddRegInfo("%rbp", 1); //base ptr
+    AddRegInfo("%rsp", 1); //stack ptr
+
+
+
 }
 
 
@@ -367,23 +375,36 @@ void CreateRegList() {
 ************************************************************************
 */
 int PutArgumentsFromStack(NodeList* arguments) {
-    /*
-     ****************************************
-              TODO : YOUR CODE HERE
-     ****************************************
-    */
-    while(arguments!=NULL) {
-    /*
-     ***********************************************************************
-              TODO : YOUR CODE HERE
-      THINK ABOUT WHERE EACH ARGUMENT COMES FROM. EXAMPLE WHERE IS THE 
-      FIRST ARGUMENT OF A FUNCTION STORED.
-     ************************************************************************
-     */ 
-        arguments = arguments->next;
+    argCounter = 0;
+    NodeList* temp = arguments;
+    // Count arguments
+    while(temp != NULL) {
+        argCounter++;
+        temp = temp->next;
     }
+    // allocate spaxe on stack for arguments by moving the stack pointer
+
+    // Move the stack pointer to allocate space for arguments
+
+
+    int i = 0; // Argument index
+    NodeList* argPtr = arguments;
+    while(argPtr != NULL) {
+        Node* arg = argPtr->node;
+            // char array with registers list
+            char* regList[] = {"%rdi", "%rsi", "%rdx", "%rcx", "%r8", "%r9"};
+            char* regName = regList[i];
+            LongToCharOffset();               
+                // Move the argument from the stack location to the register
+                fprintf(fptr, "\nmovq %s, %s", regName, lastOffsetUsed);
+                AddVarInfo(arg->name, lastOffsetUsed, INVAL, false);
+        i++;
+        argPtr = argPtr->next;
+    }
+    // get number of s
     return argCounter;
 }
+
 
 
 /*
@@ -398,14 +419,7 @@ void PutArgumentsOnStack(NodeList* arguments) {
      ****************************************
     */
     while(arguments!=NULL) {
-    /*
-     ***********************************************************************
-              TODO : YOUR CODE HERE
-      THINK ABOUT WHERE EACH ARGUMENT COMES FROM. EXAMPLE WHERE IS THE
-      FIRST ARGUMENT OF A FUNCTION STORED AND WHERE SHOULD IT BE EXTRACTED
-      FROM AND STORED TO..
-     ************************************************************************
-     */
+
         arguments = arguments->next;
     }
 }
@@ -418,20 +432,47 @@ void PutArgumentsOnStack(NodeList* arguments) {
   WANT THAT CAN BE CALLED FROM HERE.
  ************************************************************************
  */  
+
 void ProcessStatements(NodeList* statements) {
-    /*
-     ****************************************
-              TODO : YOUR CODE HERE
-     ****************************************
-    */    
-    while(statements != NULL) {
-    /*
-     ****************************************
-              TODO : YOUR CODE HERE
-     ****************************************
-    */          
-        statements = statements->next;
+    // get number of variables that we are going to store in the stack
+    //IDK IF THIS WORKS
+    int varCounter = 0;
+    NodeList* temp = statements;
+    while(temp != NULL) {
+        Node* statement = temp->node;
+        // recursively check for constants and variables
+        if(statement->stmtCode == ASSIGN){
+            // add variable to the list
+            Node* left = statement->left;
+            Node* right = statement->right;
+            varCounter++;
+
+            // right is an expression
+            if (right->exprCode == OPERATION){
+                varCounter += 2;
+            }else{
+                // right is a constant
+                varCounter++;
+            }
+        }
+        
+        temp = temp->next;
     }
+    // move stack pointer to allocate space for variables
+    fprintf(fptr, "\nsubq $%d, %%rsp", varCounter*8);
+
+    while(statements != NULL) {
+        Node* statement = statements->node;
+        if (statement->stmtCode == ASSIGN){
+            processAssign(statement);
+
+            break;
+
+    }
+    // move stack poitner back
+
+}
+    fprintf(fptr, "\naddq $%d, %%rsp", varCounter*8);
 }
 
 /*
@@ -441,21 +482,21 @@ void ProcessStatements(NodeList* statements) {
 */
 void Codegen(NodeList* worklist) {
     fptr = fopen("assembly.s", "w+");
-    /*
-     ****************************************
-              TODO : YOUR CODE HERE
-     ****************************************
-    */
     if(fptr == NULL) {
         printf("\n Could not create assembly file");
         return; 
     }
+
     while(worklist != NULL) {
-      /*
-       ****************************************
-              TODO : YOUR CODE HERE
-       ****************************************
-      */
+        Node* func = worklist->node;
+        InitAsm(func->name);
+        PutArgumentsFromStack(func->arguments);
+        ProcessStatements(func->statements);
+        PrintVarListInfo();
+        RetAsm();
+        FreeVarList();
+        // reset offset
+        lastUsedOffset = 0;
         worklist = worklist->next; 
     }
     fclose(fptr);
@@ -466,6 +507,8 @@ void Codegen(NodeList* worklist) {
  YOU CAN MAKE ADD AUXILLIARY FUNCTIONS BELOW THIS LINE. DO NOT FORGET TO DECLARE THEM IN THE HEADER
 **********************************************************************************************************************************
 */
+              
+
 
 /*
 **********************************************************************************************************************************
@@ -474,3 +517,86 @@ void Codegen(NodeList* worklist) {
 */
 
 
+void processAssign(Node* statement) {
+    Node* left = statement->left;
+
+    Node* right = statement->right;
+
+    if (right->exprCode == CONSTANT) {
+        ProcessConstant(right);  
+    } else if (right->exprCode == OPERATION) {
+        processOperation(right);
+    } else {
+        // also need to check for function calls
+
+}
+}
+
+void processOperation(Node* node){
+    Node* left = node->left;
+    Node* right = node->right;
+    // check if either is a constant and innit 
+    if (left->exprCode == CONSTANT) {
+        ProcessConstant(left);
+    }
+    if (right->exprCode == CONSTANT) {
+        ProcessConstant(right);
+    } 
+    // move left into rax
+    if (left->exprCode == VARIABLE) {
+        char* loc = LookUpVarInfo(left->name, INVAL);
+        fprintf(fptr, "\nmovq %s, %%rax", loc);
+    }
+    //IDK IF THIS WORKS
+    if (left->exprCode == CONSTANT) {
+        char* loc = LookUpVarInfo("", left->value);
+        fprintf(fptr, "\nmovq %s, %%rax", loc);
+    }
+    char* opstring = "";
+    switch (node->opCode){
+
+        case ADD:
+            opstring = "addq";
+            break;
+        case SUBTRACT:
+            opstring = "subq";
+            break;
+        case MULTIPLY:
+            opstring = "imulq";
+            break;
+        case DIVIDE:
+            opstring = "idivq";
+            break;
+        case NEGATE:
+            opstring = "negq";
+            break;
+        case BOR:
+            opstring = "orq";
+            break;
+        case BAND:
+            opstring = "andq";
+            break;
+        case BXOR:
+            opstring = "xorq";
+            break;
+        case BSHR:
+            opstring = "shr";
+            break;
+        case BSHL:
+            opstring = "shl";
+            break;
+        // move rax into rbx
+    }
+    if (right->exprCode == VARIABLE) {
+        char* loc = LookUpVarInfo(right->name, INVAL);
+        fprintf(fptr, "\n%s %s, %%rax", opstring, loc);
+    } else if (right->exprCode == CONSTANT) {
+        char* loc = LookUpVarInfo("", right->value);
+        fprintf(fptr, "\n%s %s, %%rax", opstring, loc);
+    }
+            //IDK IF THIS WORKS
+            fprintf(fptr, "\nmovq %%rax, %%rbx");
+
+
+}
+    
