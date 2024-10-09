@@ -101,23 +101,24 @@ void SaveValInRax(char* name) {
 ************************************************************************
 */
 void AddVarInfo(char* varName, char* location, long val, bool isConst) {
-   varStoreInfo* node = malloc(sizeof(varStoreInfo));
-   node->varName = varName;
-   node->value = val;
-   strcpy(node->location,location);
-   node->isConst = isConst;
-   node->next = NULL;
-   node->prev = varLast;
-   if(varHead==NULL) {
-       varHead = node;
-       varLast = node;;
-       varList = node;
-   } else {
-       //node->prev = varLast;
-       varLast->next = node;
-       varLast = varLast->next;
-   }
-   varList = varHead;
+    varStoreInfo* node = malloc(sizeof(varStoreInfo));
+    node->varName = varName;
+    node->value = val;
+    strcpy(node->location, location);
+    node->isConst = isConst;
+    node->next = NULL;
+    if (varLast != node) {
+        node->prev = varLast;
+    }
+    if(varHead==NULL) {
+        varHead = node;
+        varLast = node;;
+        varList = node;
+    } else {
+        varLast->next = node;
+        varLast = varLast->next;
+    }
+    varList = varHead;
 }
 
 /*
@@ -546,6 +547,9 @@ void processAssign(Node* statement) {
     // then we need to save the value in rax to the variable
     // this is working
     fprintf(fptr, "\nmovq %%rax, %s", varloc);
+    free(varloc);
+
+
 }
 
 void processCall(Node* node){
