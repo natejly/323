@@ -68,6 +68,21 @@ long CalcExprValue(Node* node)
          case NEGATE:
              result = -leftNode->value;
              break;
+        case BOR:
+             result = leftNode->value | rightNode->value;
+             break;
+        case BAND:
+                result = leftNode->value & rightNode->value;
+                break;
+        case BXOR:
+                result = leftNode->value ^ rightNode->value;
+                break;
+        case BSHR:  
+                result = leftNode->value >> rightNode->value;
+                break;
+        case BSHL:
+                result = leftNode->value << rightNode->value;
+                break;
          default:
              break;
      }
