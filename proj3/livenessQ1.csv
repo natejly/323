@@ -2,7 +2,7 @@ BasicBlock,Use,Def,In_final_iteration,Out_final_iteration,Number_of_Unique_Regis
 1,0,i,a,ai,2
 2,i,0,ai,ai,
 3,a,b,ai,bi,
-4,i,i,bi,bi,
+4,i,0,bi,bi,
 5,b,a,bi,ai,
 6,b,a,bi,ai,
 7,i,i,ai,ai,

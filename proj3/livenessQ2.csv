@@ -10,5 +10,5 @@ BasicBlock,Use,Def,In_final_iteration,Out_final_iteration,Number_of_Unique_Regis
 9,g,0,cdeg,cdeg,
 10,dc,e,cdg,deg,
 11,g,c,deg,cdeg,
-12,g,g,cedg,cedg,
+12,g,g,cedg,cdeg,
 13,f,0,f,0,
