@@ -547,9 +547,6 @@ void processAssign(Node* statement) {
     // then we need to save the value in rax to the variable
     // this is working
     fprintf(fptr, "\nmovq %%rax, %s", varloc);
-    free(varloc);
-
-
 }
 
 void processCall(Node* node){
