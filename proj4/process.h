@@ -31,3 +31,14 @@
 
 // Execute command list CMDLIST and return status of last command executed
 int process (const CMD *cmdList);
+int checkCD(const CMD *cmd);
+int processBG(const CMD *cmd);
+int processSimple(const CMD *cmd);
+int processPipe(const CMD *cmd);
+int checkCD(const CMD *cmd);
+int handleInputRedirection(const CMD *cmd);
+int handleOutputRedirection(const CMD *cmd);
+
+
+
+
