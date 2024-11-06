@@ -114,22 +114,30 @@ int process(const CMD *cmdList) {
     }
 }
 int processSimple(const CMD *cmd) {
-    // Local variables
-    for (int i = 0; i < cmd->nLocal; i++){
+    // Set local variables if any
+    for (int i = 0; i < cmd->nLocal; i++) {
         if (setenv(cmd->locVar[i], cmd->locVal[i], 1) != 0) {
             perror("setenv");
             return errno;
         }
     }
-    // Check built-in commands
+
+    // Check for built-in commands
     if (cmd->argc > 0 && strcmp(cmd->argv[0], "cd") == 0) {
-        return checkCD(cmd);
+        int status = checkCD(cmd);
+        reportstatus(status);
+        return status;
     } else if (cmd->argc > 0 && strcmp(cmd->argv[0], "pushd") == 0) {
-        return checkPush(cmd);
+        int status = checkPush(cmd);
+        reportstatus(status);
+        return status;
     } else if (cmd->argc > 0 && strcmp(cmd->argv[0], "popd") == 0) {
-        return checkPop(cmd);
+        int status = checkPop(cmd);
+        reportstatus(status);
+        return status;
     }
 
+    // Fork to create a new process for non-built-in commands
     pid_t pid = fork();
     if (pid < 0) {
         perror("fork");
@@ -142,6 +150,8 @@ int processSimple(const CMD *cmd) {
         if (handleOutputRedirection(cmd) != 0) {
             exit(errno);
         }
+
+        // Execute the command
         if (execvp(cmd->argv[0], cmd->argv) < 0) {
             perror("execvp");
             exit(errno);
@@ -153,9 +163,13 @@ int processSimple(const CMD *cmd) {
             perror("waitpid");
             return errno;
         }
-        return STATUS(status);
+        
+        int final_status = STATUS(status);  // Use STATUS macro to get the correct status
+        reportstatus(final_status);  // Report status
+        return final_status;
     }
-    return 0;
+    
+    return 0;  // Should not reach here
 }
 int checkCD(const CMD *cmd){
     // Determine the target directory
@@ -407,19 +421,18 @@ int processPipe(const CMD *cmd) {
             perror("waitpid");
             return errno;
         }
-        status_list[i] = STATUS(wstatus);  // Apply STATUS macro
+        status_list[i] = STATUS(wstatus);
         if (status_list[i] != 0) {
             any_failed = 1;
             final_status = status_list[i]; // Keep updating to the latest failure
         }
     }
 
-    if (any_failed) {
-        return final_status; // Return the status of the rightmost failed command
-    } else {
-        return 0; // All commands succeeded
-    }
+    // Report the final status of the pipeline
+    reportstatus(any_failed ? final_status : 0);
+    return any_failed ? final_status : 0;
 }
+
 //------------------------------------------------------------------
 
 
@@ -454,11 +467,14 @@ void reap() {
             current = &(*current)->next;
         } else if (result == pid) {
             // Process terminated
+            int final_status = STATUS(status);
             if (WIFEXITED(status)) {
                 printf("Completed: %d (%d)\n", pid, WEXITSTATUS(status));
             } else if (WIFSIGNALED(status)) {
                 printf("Process %d terminated by signal %d\n", pid, WTERMSIG(status));
             }
+            reportstatus(final_status);  // Report the final status of the background job
+
             // pop the node
             PIDNode *temp = *current;
             *current = (*current)->next;
@@ -470,6 +486,7 @@ void reap() {
         }
     }
 }
+
 
 int processBG(const CMD *cmd) {
     pid_t pid = fork();  // Fork a new process
@@ -485,12 +502,14 @@ int processBG(const CMD *cmd) {
     } else {  // Parent process: Do not wait for the child
         fprintf(stderr, "Backgrounded: %d\n", pid);
         push_bg_process(pid);  // Push background PID onto stack
-        return process(cmd->right);
-        //FIXME
-        //return 0?
         
+        // Process the right command and report its status
+        int status = process(cmd->right);
+        reportstatus(status);
+        return status;
     }
 }
+
 
 
 int processSubcmd(const CMD *cmd) {
@@ -527,9 +546,20 @@ int processSubcmd(const CMD *cmd) {
             perror("waitpid");
             return errno;
         }
-        return STATUS(status);
+        
+        int final_status = STATUS(status);  // Get the final status
+        reportstatus(final_status);  // Report the final status
+        return final_status;
     }
 }
 
 
 
+
+void reportstatus(int status) {
+    char status_str[12];  // Buffer to hold the status as a string
+    snprintf(status_str, sizeof(status_str), "%d", status);  // Convert status to string
+    if (setenv("?", status_str, 1) != 0) {  // Set $? environment variable
+        perror("setenv");
+    }
+}
