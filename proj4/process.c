@@ -257,7 +257,6 @@ int checkPop(const CMD *cmd){
         return 1;
     }
 }
-
 int handleInputRedirection(const CMD *cmd) {
     if (cmd->fromType == NONE) {
         return 0;
@@ -408,7 +407,7 @@ int processPipe(const CMD *cmd) {
             perror("waitpid");
             return errno;
         }
-        status_list[i] = STATUS(wstatus);
+        status_list[i] = STATUS(wstatus);  // Apply STATUS macro
         if (status_list[i] != 0) {
             any_failed = 1;
             final_status = status_list[i]; // Keep updating to the latest failure
@@ -421,7 +420,6 @@ int processPipe(const CMD *cmd) {
         return 0; // All commands succeeded
     }
 }
-
 //------------------------------------------------------------------
 
 
@@ -461,6 +459,7 @@ void reap() {
             } else if (WIFSIGNALED(status)) {
                 printf("Process %d terminated by signal %d\n", pid, WTERMSIG(status));
             }
+            // pop the node
             PIDNode *temp = *current;
             *current = (*current)->next;
             free(temp);
@@ -486,7 +485,6 @@ int processBG(const CMD *cmd) {
     } else {  // Parent process: Do not wait for the child
         fprintf(stderr, "Backgrounded: %d\n", pid);
         push_bg_process(pid);  // Push background PID onto stack
-
         return process(cmd->right);
         //FIXME
         //return 0?

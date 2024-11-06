@@ -41,6 +41,8 @@ int handleInputRedirection(const CMD *cmd);
 int handleOutputRedirection(const CMD *cmd);
 void reap();
 int processSubcmd(const CMD *cmdList);
+void reportstatus(int status);
+
 
 
 
