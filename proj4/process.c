@@ -1,3 +1,4 @@
+#define _POSIX_C_SOURCE 200809L
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -173,6 +174,8 @@ int processSimple(const CMD *cmd) {
 }
 int checkCD(const CMD *cmd){
     // Determine the target directory
+    int oldin = dup(STDIN_FILENO);
+    int oldout = dup(STDOUT_FILENO);
     const char *target;
     if (cmd->argc == 1) {
         target = getenv("HOME");
@@ -192,6 +195,16 @@ int checkCD(const CMD *cmd){
         return errno;
     }
     // Success
+    dup2(oldin, STDIN_FILENO);
+    dup2(oldout, STDOUT_FILENO);
+    close(oldin);
+    close(oldout);
+    for (int i = 0; i < cmd->nLocal; i++) {
+        if (setenv(cmd->locVar[i], cmd->locVal[i], 1) != 0) {
+            perror("setenv");
+            return errno;
+        }
+    }
     return 0;
 }
 int checkPush(const CMD *cmd){

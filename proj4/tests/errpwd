@@ -1,7 +1,0 @@
-#!/bin/bash
-#
-#   errpwd
-#
-# Run pwd with output redirected to stderr
-
-pwd >&2
