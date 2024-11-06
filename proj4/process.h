@@ -13,8 +13,7 @@
 #include <sys/file.h>
 #include <sys/wait.h>
 #include <limits.h>
-#include <linux/limits.h>
-#include "/c/cs323/proj4/starter-code/parse.h"
+#include "parse.h"
 
 // Write message to stderr using format FORMAT
 #define WARN(format,...) fprintf (stderr, format, __VA_ARGS__)
@@ -36,8 +35,12 @@ int processBG(const CMD *cmd);
 int processSimple(const CMD *cmd);
 int processPipe(const CMD *cmd);
 int checkCD(const CMD *cmd);
+int checkPush(const CMD *cmd);
+int checkPop(const CMD *cmd);
 int handleInputRedirection(const CMD *cmd);
 int handleOutputRedirection(const CMD *cmd);
+void reap();
+int processSubcmd(const CMD *cmdList);
 
 
 

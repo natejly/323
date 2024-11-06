@@ -2,38 +2,70 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/wait.h>
+#include <assert.h>
 #include "process.h"
 #include "parse.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <sys/wait.h>
-// typedef struct cmd {
-//   int type;             // Node type: SIMPLE, PIPE, SEP_AND, SEP_OR, SEP_END,
-//                         //   SEP_BG, SUBCMD, or NONE (default)
 
-//   int argc;             // Number of command-line arguments
-//   char **argv;          // Null-terminated argument vector or NULL
 
-//   int nLocal;           // Number of local variable assignments
-//   char **locVar;        // Array of local variable names and the values to
-//   char **locVal;        //   assign to them when the command executes
 
-//   int fromType;         // Redirect stdin: NONE (default), RED_IN (<), or
-//                         //   RED_IN_HERE (<<)
-//   char *fromFile;       // File to redirect stdin, contents of here document,
-//                         //   or NULL (default)
 
-//   int toType;           // Redirect stdout: NONE (default), RED_OUT (>),
-//                         //   RED_OUT_APP (>>), or  RED_OUT_ERR (&>)
-//   char *toFile;         // File to redirect stdout or NULL (default)
+typedef struct CMDNode {
+    const CMD *cmd;
+    struct CMDNode *next;
+} CMDNode;
 
-//   struct cmd *left;     // Left subtree or NULL (default)
-//   struct cmd *right;    // Right subtree or NULL (default)
-// } CMD;
+void push(CMDNode **stack, const CMD *cmd) {
+    CMDNode *new_node = malloc(sizeof(CMDNode));
+    new_node->cmd = cmd;
+    new_node->next = *stack;
+    *stack = new_node;
+}
+
+const CMD *pop(CMDNode **stack) {
+    if (*stack == NULL) return NULL;
+    CMDNode *top = *stack;
+    const CMD *cmd = top->cmd;
+    *stack = top->next;
+    free(top);
+    return cmd;
+}
+// char* stack implementation from James Aspnes 223 lecture
+struct elt {
+    struct elt *next;
+    char* value;
+};
+struct elt *head = NULL;
+struct elt *curr = NULL;
+#define STACK_EMPTY (0)
+void stackPush(char* dir){
+    struct elt *e = malloc(sizeof(struct elt));
+    assert(e);
+    e->value = malloc(strlen(dir) + 1);
+    e->value = strcpy(e->value, dir);
+    e->next = head;
+    head = e;
+}
+char* stackPop(){
+    if(head == NULL){
+        return STACK_EMPTY;
+    }
+    char* ret = head->value;
+    struct elt *e = head;
+    head = e->next;
+    free(e->value);
+    free(e); // Do not free e->value here
+    return ret;
+}
+void stackPrint(){
+    struct elt *ptr;
+    for(ptr = head; ptr != 0; ptr = ptr->next) {
+        printf(" %s", ptr->value);
+    }
+    printf("\n");
+}
 int process(const CMD *cmdList) {
-    int status = 0; // Initialize status to a default value
-
+    reap();
+    int status = 0; 
     switch (cmdList->type) {
         case SIMPLE:
             return processSimple(cmdList);
@@ -43,54 +75,193 @@ int process(const CMD *cmdList) {
 
         case SEP_AND:
             status = process(cmdList->left);
-            // If the left command succeeded, process the right command
             if (status == 0) {
                 status = process(cmdList->right);
             }
-            return status; // Return the final status
+            return status;
 
         case SEP_OR:
             status = process(cmdList->left);
-            // If the left command failed, process the right command
             if (status != 0) {
                 status = process(cmdList->right);
             }
-            return status; // Return the final status
+            return status;
 
         case SEP_END:
-            process(cmdList->left);
-            status = process(cmdList->right);
-            return status; // Return the status of the right command
+            status = process(cmdList->left);
+            reap();  
+            status = process(cmdList->right);  
+            return status;
 
         case SEP_BG:
-            status = processBG(cmdList);
-            return status; // Return status from processBG
+            processBG(cmdList);
+            return 0; // Status is 0 in the invoking shell
 
         case SUBCMD:
-            // status = processSubcmd(cmdList);
-            // return status; // Return status from processSubcmd
+            status = processSubcmd(cmdList);
+            return status; // Return status from processSubcmd
 
         case NONE:
-            // Do nothing, return default status
+            // Grouped command
+            if (cmdList->left != NULL) {
+                status = process(cmdList->left);
+            }
             return status;
 
         default:
-            // Unrecognized command type, possibly set an error status
             fprintf(stderr, "Unsupported command type\n");
             return 1; // Return a non-zero status to indicate failure
     }
 }
+int processSimple(const CMD *cmd) {
+    // Local variables
+    for (int i = 0; i < cmd->nLocal; i++){
+        if (setenv(cmd->locVar[i], cmd->locVal[i], 1) != 0) {
+            perror("setenv");
+            return errno;
+        }
+    }
+    // Check built-in commands
+    if (cmd->argc > 0 && strcmp(cmd->argv[0], "cd") == 0) {
+        return checkCD(cmd);
+    } else if (cmd->argc > 0 && strcmp(cmd->argv[0], "pushd") == 0) {
+        return checkPush(cmd);
+    } else if (cmd->argc > 0 && strcmp(cmd->argv[0], "popd") == 0) {
+        return checkPop(cmd);
+    }
 
-int processBG(const CMD *cmd){
-    //fork a child process
-    //execute the left command
-    //parent process continues to the next command
-    return 1;
+    pid_t pid = fork();
+    if (pid < 0) {
+        perror("fork");
+        return errno;
+    } else if (pid == 0) {
+        // Child process
+        if (handleInputRedirection(cmd) != 0) {
+            exit(errno);
+        }
+        if (handleOutputRedirection(cmd) != 0) {
+            exit(errno);
+        }
+        if (execvp(cmd->argv[0], cmd->argv) < 0) {
+            perror("execvp");
+            exit(errno);
+        }
+    } else {
+        // Parent process
+        int status;
+        if (waitpid(pid, &status, 0) < 0) {
+            perror("waitpid");
+            return errno;
+        }
+        return STATUS(status);
+    }
+    return 0;
+}
+int checkCD(const CMD *cmd){
+    // Determine the target directory
+    const char *target;
+    if (cmd->argc == 1) {
+        target = getenv("HOME");
+        if (target == NULL) {
+            fprintf(stderr, "cd: HOME not set\n");
+            return 1;
+        }
+    } else if (cmd->argc == 2){
+        target = cmd->argv[1];
+    } else {
+        fprintf(stderr, "cd: too many arguments\n");
+        return 1;
+    }
+    // Change directory
+    if (chdir(target) != 0) {
+        perror("cd");
+        return errno;
+    }
+    // Success
+    return 0;
+}
+int checkPush(const CMD *cmd){
+    // Set local variables
+    for (int i = 0; i < cmd->nLocal; i++) {
+        if (setenv(cmd->locVar[i], cmd->locVal[i], 1) != 0) {
+            perror("setenv");
+            return errno;
+        }
+    }
+
+    // Get current directory
+    char *cwd = getcwd(NULL, 0);
+    if (cwd == NULL) {
+        perror("getcwd");
+        return errno;
+    }
+
+    if (cmd->argc == 1){
+        char *home = getenv("HOME");
+        if (home == NULL) {
+            perror("getenv");
+            free(cwd);
+            return errno;
+        }
+        stackPush(home);
+        if (chdir(home) != 0) {
+            perror("pushd: chdir");
+            free(cwd);
+            return errno;
+        }
+        printf("%s", getcwd(NULL, 0));
+        stackPrint();
+    } else if (cmd->argc == 2) {
+        stackPush(cwd);
+        if (chdir(cmd->argv[1]) != 0) {
+            perror("pushd: chdir");
+            free(cwd);
+            return errno;
+        }
+        printf("%s", getcwd(NULL, 0));
+        stackPrint();
+    } else {
+        fprintf(stderr, "pushd: Usage: pushd [dir]\n");
+        free(cwd);
+        return 1;
+    }
+    free(cwd);
+    return 0;
+}
+int checkPop(const CMD *cmd){
+    // Set local variables
+    for (int i = 0; i < cmd->nLocal; i++) {
+        if (setenv(cmd->locVar[i], cmd->locVal[i], 1) != 0) {
+            perror("setenv");
+            return errno;
+        }
+    }
+
+    if(cmd->argc == 1){
+        if (head == NULL) {
+            fprintf(stderr, "popd: directory stack empty\n");
+            return 1;
+        }
+        char *dir = stackPop();
+        if (chdir(dir) != 0) {
+            perror("popd: chdir");
+            free(dir);
+            return errno;
+        }
+        printf("%s", getcwd(NULL, 0));
+        stackPrint();
+        free(dir);
+        return 0;
+    } else {
+        fprintf(stderr, "popd: Usage: popd\n");
+        return 1;
+    }
 }
 
 int handleInputRedirection(const CMD *cmd) {
-    if (cmd->fromType == NONE) return 0;
-
+    if (cmd->fromType == NONE) {
+        return 0;
+    }
     int fd_in;
     if (cmd->fromType == RED_IN) {
         fd_in = open(cmd->fromFile, O_RDONLY);
@@ -125,7 +296,6 @@ int handleInputRedirection(const CMD *cmd) {
     close(fd_in);
     return 0;
 }
-
 int handleOutputRedirection(const CMD *cmd) {
     if (cmd->toType == NONE) return 0;
 
@@ -147,7 +317,7 @@ int handleOutputRedirection(const CMD *cmd) {
     }
 
     if (cmd->toType == RED_OUT_ERR) {
-        if (dup2(fd_out, STDOUT_FILENO) < 0 || dup2(fd_out, STDERR_FILENO) < 0) {
+        if (dup2(fd_out, STDERR_FILENO) < 0) {
             perror("dup2");
             close(fd_out);
             return errno;
@@ -160,127 +330,35 @@ int handleOutputRedirection(const CMD *cmd) {
     close(fd_out);
     return 0;
 }
-
-
-int checkCD(const CMD *cmd){
-        // Handle variable assignments for 'cd'
-        for (int i = 0; i < cmd->nLocal; i++){
-            if (setenv(cmd->locVar[i], cmd->locVal[i], 1) != 0) {
-                perror("setenv");
-                return 1;
-            }
-        }
-
-        // Determine the target directory
-        const char *targetDir;
-        if (cmd->argc > 1) {
-            targetDir = cmd->argv[1];
-        } else {
-            // No argument provided; default to HOME directory
-            targetDir = getenv("HOME");
-            if (targetDir == NULL) {
-                fprintf(stderr, "cd: HOME not set\n");
-                return 1;
-            }
-        }
-
-        // Change directory
-        if (chdir(targetDir) != 0) {
-            perror("cd");
-            return errno;
-        }
-
-        // Success
-        return 0;
-    }
-
-int processSimple(const CMD *cmd) {
-    if (cmd->argc > 0 && strcmp(cmd->argv[0], "cd") == 0) {
-        return checkCD(cmd);
-    }
-    int status;
-    pid_t pid = fork();
-    if (pid < 0) {
-        perror("fork");
-        return errno;
-    }
-    if (pid == 0) {
-        // Child process
-
-        // Set environment variables
-        for (int i = 0; i < cmd->nLocal; i++) {
-            if (setenv(cmd->locVar[i], cmd->locVal[i], 1) != 0) {
-                perror("setenv");
-                exit(1);
-            }
-        }
-
-        // Handle redirections using helper functions
-        if (handleInputRedirection(cmd) != 0) {
-            exit(1);
-        }
-        if (handleOutputRedirection(cmd) != 0) {
-            exit(1);
-        }
-
-        // Execute command
-        execvp(cmd->argv[0], cmd->argv);
-        perror("execvp");
-        exit(errno);
-    }
-    // Parent process: wait for child
-    if (waitpid(pid, &status, 0) < 0) {
-        perror("waitpid");
-        return errno;
-    }
-
-    return WEXITSTATUS(status);
-}
-
- 
 int processPipe(const CMD *cmd) {
     if (cmd == NULL) {
         return 0;
     }
 
-    int status = 0;
-    int in_fd = 0;          // Input file descriptor for the first command
-    int fd[2];              // Pipe file descriptors
+    int in_fd = 0;  // Input file descriptor for the first command
+    int fd[2];      // Pipe file descriptors
     pid_t pid;
-    int cmd_count = 0;
 
-    // Arrays to store commands and PIDs
-    const CMD *cmds[1024];
-    pid_t pid_list[1024];
+    CMDNode *stack = NULL;
 
-    // Flatten the pipeline into an array of commands
+    // Flatten the pipeline into a stack of commands
     const CMD *current_cmd = cmd;
+    int cmd_count = 0;
     while (current_cmd->type == PIPE) {
-        cmds[cmd_count++] = current_cmd->right;
+        push(&stack, current_cmd->right);
         current_cmd = current_cmd->left;
+        cmd_count++;
     }
-    cmds[cmd_count++] = current_cmd; // Add the last command
+    push(&stack, current_cmd);
+    cmd_count++;
 
-    // Reverse the array to maintain correct order of execution
-    for (int i = 0; i < cmd_count / 2; ++i) {
-        const CMD *temp = cmds[i];
-        cmds[i] = cmds[cmd_count - i - 1];
-        cmds[cmd_count - i - 1] = temp;
-    }
+    pid_t pid_list[cmd_count];
+    int status_list[cmd_count];
+    cmd_count = 0;
 
-    // Setup input redirection for the first command if needed
-    if (cmds[0]->fromType != NONE) {
-        in_fd = open(cmds[0]->fromFile, O_RDONLY);
-        if (in_fd < 0) {
-            perror("open");
-            return errno;
-        }
-    }
-
-    // Iterate over the commands in the pipeline
-    for (int i = 0; i < cmd_count; ++i) {
-        // Create a pipe for all but the last command
-        if (i < cmd_count - 1) {
+    // Process each command in the pipeline
+    while ((current_cmd = pop(&stack)) != NULL) {
+        if (stack != NULL) {
             if (pipe(fd) < 0) {
                 perror("pipe");
                 return errno;
@@ -295,71 +373,165 @@ int processPipe(const CMD *cmd) {
             return errno;
         } else if (pid == 0) {
             // Child process
-
-            // Set environment variables
-            for (int j = 0; j < cmds[i]->nLocal; j++) {
-                if (setenv(cmds[i]->locVar[j], cmds[i]->locVal[j], 1) != 0) {
-                    perror("setenv");
-                    exit(1);
-                }
+            if (in_fd != 0) {
+                dup2(in_fd, STDIN_FILENO);
+                close(in_fd);
             }
-
-            // Input redirection for first command or via pipe
-            if (i == 0 && cmds[i]->fromType != NONE) {
-                if (handleInputRedirection(cmds[i]) != 0) exit(1);
-            } else if (in_fd != 0) {
-                if (dup2(in_fd, STDIN_FILENO) < 0) {
-                    perror("dup2");
-                    exit(errno);
-                }
+            if (stack != NULL) {
+                dup2(fd[1], STDOUT_FILENO);
+                close(fd[1]);
             }
-
-            // Output redirection
-            if (i < cmd_count - 1) {
-                if (dup2(fd[1], STDOUT_FILENO) < 0) {
-                    perror("dup2");
-                    exit(errno);
-                }
-            } else if (cmds[i]->toType != NONE) {
-                if (handleOutputRedirection(cmds[i]) != 0) exit(1);
-            }
-
             // Close unused file descriptors
             if (fd[0] != -1) close(fd[0]);
-            if (fd[1] != -1) close(fd[1]);
-            if (in_fd != 0) close(in_fd);
 
-            // Execute command
-            execvp(cmds[i]->argv[0], cmds[i]->argv);
-            perror("execvp");
-            exit(errno);
+            // Execute the command
+            int status = process(current_cmd);
+            exit(status);
         } else {
             // Parent process
-            pid_list[i] = pid;
+            pid_list[cmd_count++] = pid;
 
-            // Close file descriptors in the parent
+            // Close pipes in the parent
             if (in_fd != 0) close(in_fd);
             if (fd[1] != -1) close(fd[1]);
 
-            // Prepare input for the next command
-            in_fd = fd[0];
+            in_fd = fd[0]; // Set up input for the next command
         }
     }
 
     // Wait for all child processes to complete
     int final_status = 0;
+    int any_failed = 0;
     for (int i = 0; i < cmd_count; ++i) {
         int wstatus;
         if (waitpid(pid_list[i], &wstatus, 0) < 0) {
             perror("waitpid");
             return errno;
         }
-        if (WIFEXITED(wstatus)) {
-            final_status = WEXITSTATUS(wstatus);
-        } else if (WIFSIGNALED(wstatus)) {
-            final_status = 128 + WTERMSIG(wstatus);
+        status_list[i] = STATUS(wstatus);
+        if (status_list[i] != 0) {
+            any_failed = 1;
+            final_status = status_list[i]; // Keep updating to the latest failure
         }
     }
 
-    return final_status;
+    if (any_failed) {
+        return final_status; // Return the status of the rightmost failed command
+    } else {
+        return 0; // All commands succeeded
+    }
 }
+
+//------------------------------------------------------------------
+
+
+typedef struct PIDNode {
+    pid_t pid;
+    struct PIDNode *next;
+} PIDNode;
+
+PIDNode *bg_stack = NULL;  // Stack for background processes
+
+// Push a process ID onto the background stack
+void push_bg_process(pid_t pid) {
+    PIDNode *new_node = malloc(sizeof(PIDNode));
+    if (new_node == NULL) {
+        perror("malloc");
+        exit(1);
+    }
+    new_node->pid = pid;
+    new_node->next = bg_stack;
+    bg_stack = new_node;
+}
+
+// Reap all background processes in the stack
+void reap() {
+    PIDNode **current = &bg_stack;
+    while (*current != NULL) {
+        int status;
+        pid_t pid = (*current)->pid;
+        pid_t result = waitpid(pid, &status, WNOHANG);
+        if (result == 0) {
+            // Process has not terminated yet
+            current = &(*current)->next;
+        } else if (result == pid) {
+            // Process terminated
+            if (WIFEXITED(status)) {
+                printf("Completed: %d (%d)\n", pid, WEXITSTATUS(status));
+            } else if (WIFSIGNALED(status)) {
+                printf("Process %d terminated by signal %d\n", pid, WTERMSIG(status));
+            }
+            PIDNode *temp = *current;
+            *current = (*current)->next;
+            free(temp);
+        } else {
+            // Error
+            perror("waitpid");
+            current = &(*current)->next;
+        }
+    }
+}
+
+int processBG(const CMD *cmd) {
+    pid_t pid = fork();  // Fork a new process
+
+    if (pid < 0) {  // Error handling for fork failure
+        perror("fork");
+        return errno;
+    }
+
+    if (pid == 0) {  // Child process: Execute the left command in the background
+        int status = process(cmd->left);  // Recursively process the left command
+        exit(status);  // Exit child with the status of the left command
+    } else {  // Parent process: Do not wait for the child
+        fprintf(stderr, "Backgrounded: %d\n", pid);
+        push_bg_process(pid);  // Push background PID onto stack
+
+        return process(cmd->right);
+        //FIXME
+        //return 0?
+        
+    }
+}
+
+
+int processSubcmd(const CMD *cmd) {
+    pid_t pid = fork();
+
+    if (pid < 0) {
+        perror("fork");
+        return errno;
+    } else if (pid == 0) {
+        // Child process: execute the subcommand in a subshell
+        // Handle input/output redirections
+        if (handleInputRedirection(cmd) != 0) {
+            exit(errno);
+        }
+        if (handleOutputRedirection(cmd) != 0) {
+            exit(errno);
+        }
+
+        // Set local variables
+        for (int i = 0; i < cmd->nLocal; i++) {
+            if (setenv(cmd->locVar[i], cmd->locVal[i], 1) != 0) {
+                perror("setenv");
+                exit(errno);
+            }
+        }
+
+        // Recursively process the subcommand
+        int status = process(cmd->left); // Assuming the subcommand is in cmd->left
+        exit(status);
+    } else {
+        // Parent process: wait for the child to finish
+        int status;
+        if (waitpid(pid, &status, 0) < 0) {
+            perror("waitpid");
+            return errno;
+        }
+        return STATUS(status);
+    }
+}
+
+
+
