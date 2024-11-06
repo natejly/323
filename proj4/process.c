@@ -469,7 +469,7 @@ void reap() {
             // Process terminated
             int final_status = STATUS(status);
             if (WIFEXITED(status)) {
-                printf("Completed: %d (%d)\n", pid, WEXITSTATUS(status));
+                fprintf(stderr, "Completed: %d (%d)\n", pid, WEXITSTATUS(status));
             } else if (WIFSIGNALED(status)) {
                 printf("Process %d terminated by signal %d\n", pid, WTERMSIG(status));
             }
@@ -557,7 +557,7 @@ int processSubcmd(const CMD *cmd) {
 
 
 void reportstatus(int status) {
-    char status_str[12];  // Buffer to hold the status as a string
+    char status_str[24];  // Buffer to hold the status as a string
     snprintf(status_str, sizeof(status_str), "%d", status);  // Convert status to string
     if (setenv("?", status_str, 1) != 0) {  // Set $? environment variable
         perror("setenv");
