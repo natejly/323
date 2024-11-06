@@ -42,7 +42,8 @@ void stackPush(char* dir){
     struct elt *e = malloc(sizeof(struct elt));
     assert(e);
     e->value = malloc(strlen(dir) + 1);
-    e->value = strcpy(e->value, dir);
+    strcpy(e->value, dir);
+
     e->next = head;
     head = e;
 }
@@ -53,8 +54,7 @@ char* stackPop(){
     char* ret = head->value;
     struct elt *e = head;
     head = e->next;
-    free(e->value);
-    free(e); // Do not free e->value here
+    free(e); // Only free the stack element itself, not the value.
     return ret;
 }
 void stackPrint(){
@@ -65,6 +65,7 @@ void stackPrint(){
     printf("\n");
 }
 int process(const CMD *cmdList) {
+
     reap();
     int status = 0; 
     switch (cmdList->type) {
@@ -114,12 +115,28 @@ int process(const CMD *cmdList) {
             return 1; // Return a non-zero status to indicate failure
     }
 }
+typedef struct EnvBackup {
+    char *var;
+    char *original_val;
+} EnvBackup;
+
 int processSimple(const CMD *cmd) {
-    // Set local variables if any
+    // Backup array to hold original environment variables
+    EnvBackup *env_backup = malloc(cmd->nLocal * sizeof(EnvBackup));
+    if (env_backup == NULL) {
+        perror("malloc");
+        return errno;
+    }
+
+    // Set local variables and backup originals
     for (int i = 0; i < cmd->nLocal; i++) {
-        if (setenv(cmd->locVar[i], cmd->locVal[i], 1) != 0) {
-            perror("setenv");
-            return errno;
+        if (cmd->locVar[i] != NULL && cmd->locVal[i] != NULL) {
+            // Save the original value before setting the new one
+            env_backup[i].var = cmd->locVar[i];
+            env_backup[i].original_val = getenv(cmd->locVar[i]) ? strdup(getenv(cmd->locVar[i])) : NULL;
+            
+            // Set new environment variable
+            setenv(cmd->locVar[i], cmd->locVal[i], 1);
         }
     }
 
@@ -127,14 +144,50 @@ int processSimple(const CMD *cmd) {
     if (cmd->argc > 0 && strcmp(cmd->argv[0], "cd") == 0) {
         int status = checkCD(cmd);
         reportstatus(status);
+        
+        // Restore original environment variables
+        for (int i = 0; i < cmd->nLocal; i++) {
+            if (env_backup[i].original_val != NULL) {
+                setenv(env_backup[i].var, env_backup[i].original_val, 1);
+                free(env_backup[i].original_val);
+            } else {
+                unsetenv(env_backup[i].var);
+            }
+        }
+        free(env_backup);
+        
         return status;
     } else if (cmd->argc > 0 && strcmp(cmd->argv[0], "pushd") == 0) {
         int status = checkPush(cmd);
         reportstatus(status);
+        
+        // Restore original environment variables
+        for (int i = 0; i < cmd->nLocal; i++) {
+            if (env_backup[i].original_val != NULL) {
+                setenv(env_backup[i].var, env_backup[i].original_val, 1);
+                free(env_backup[i].original_val);
+            } else {
+                unsetenv(env_backup[i].var);
+            }
+        }
+        free(env_backup);
+
         return status;
     } else if (cmd->argc > 0 && strcmp(cmd->argv[0], "popd") == 0) {
         int status = checkPop(cmd);
         reportstatus(status);
+
+        // Restore original environment variables
+        for (int i = 0; i < cmd->nLocal; i++) {
+            if (env_backup[i].original_val != NULL) {
+                setenv(env_backup[i].var, env_backup[i].original_val, 1);
+                free(env_backup[i].original_val);
+            } else {
+                unsetenv(env_backup[i].var);
+            }
+        }
+        free(env_backup);
+
         return status;
     }
 
@@ -142,6 +195,13 @@ int processSimple(const CMD *cmd) {
     pid_t pid = fork();
     if (pid < 0) {
         perror("fork");
+        
+        // Free backup array on error
+        for (int i = 0; i < cmd->nLocal; i++) {
+            free(env_backup[i].original_val);
+        }
+        free(env_backup);
+        
         return errno;
     } else if (pid == 0) {
         // Child process
@@ -162,14 +222,26 @@ int processSimple(const CMD *cmd) {
         int status;
         if (waitpid(pid, &status, 0) < 0) {
             perror("waitpid");
-            return errno;
+            status = errno;
+        } else {
+            status = STATUS(status);  // Use STATUS macro to get the correct status
         }
-        
-        int final_status = STATUS(status);  // Use STATUS macro to get the correct status
-        reportstatus(final_status);  // Report status
-        return final_status;
+
+        reportstatus(status);
+
+        // Restore original environment variables
+        for (int i = 0; i < cmd->nLocal; i++) {
+            if (env_backup[i].original_val != NULL) {
+                setenv(env_backup[i].var, env_backup[i].original_val, 1);
+                free(env_backup[i].original_val);
+            } else {
+                unsetenv(env_backup[i].var);
+            }
+        }
+        free(env_backup);
+
+        return status;
     }
-    
     return 0;  // Should not reach here
 }
 int checkCD(const CMD *cmd){
@@ -177,18 +249,19 @@ int checkCD(const CMD *cmd){
     int oldin = dup(STDIN_FILENO);
     int oldout = dup(STDOUT_FILENO);
     const char *target;
-    if (cmd->argc == 1) {
-        target = getenv("HOME");
-        if (target == NULL) {
-            fprintf(stderr, "cd: HOME not set\n");
-            return 1;
-        }
-    } else if (cmd->argc == 2){
-        target = cmd->argv[1];
-    } else {
-        fprintf(stderr, "cd: too many arguments\n");
+if (cmd->argc == 1) {
+    target = getenv("HOME");
+    if (target == NULL) {
+        fprintf(stderr, "cd: HOME not set\n");
         return 1;
     }
+} else if (cmd->argc == 2) {
+    target = cmd->argv[1];
+} else {
+    fprintf(stderr, "cd: too many arguments\n");
+    return 1;
+}
+
     // Change directory
     if (chdir(target) != 0) {
         perror("cd");
@@ -277,7 +350,6 @@ int checkPop(const CMD *cmd){
         }
         printf("%s", getcwd(NULL, 0));
         stackPrint();
-        free(dir);
         return 0;
     } else {
         fprintf(stderr, "popd: Usage: popd\n");
@@ -366,21 +438,24 @@ int processPipe(const CMD *cmd) {
     pid_t pid;
 
     CMDNode *stack = NULL;
-
-    // Flatten the pipeline into a stack of commands
     const CMD *current_cmd = cmd;
     int cmd_count = 0;
-    while (current_cmd->type == PIPE) {
+
+    // Flatten the pipeline commands into the stack
+    while (current_cmd != NULL && current_cmd->type == PIPE) {
         push(&stack, current_cmd->right);
         current_cmd = current_cmd->left;
         cmd_count++;
     }
-    push(&stack, current_cmd);
-    cmd_count++;
+    if (current_cmd != NULL) {
+        push(&stack, current_cmd);
+        cmd_count++;
+    }
 
     pid_t pid_list[cmd_count];
     int status_list[cmd_count];
     cmd_count = 0;
+
 
     // Process each command in the pipeline
     while ((current_cmd = pop(&stack)) != NULL) {
@@ -471,33 +546,31 @@ void push_bg_process(pid_t pid) {
 // Reap all background processes in the stack
 void reap() {
     PIDNode **current = &bg_stack;
-    while (*current != NULL) {
-        int status;
-        pid_t pid = (*current)->pid;
-        pid_t result = waitpid(pid, &status, WNOHANG);
-        if (result == 0) {
-            // Process has not terminated yet
-            current = &(*current)->next;
-        } else if (result == pid) {
-            // Process terminated
-            int final_status = STATUS(status);
-            if (WIFEXITED(status)) {
-                fprintf(stderr, "Completed: %d (%d)\n", pid, WEXITSTATUS(status));
-            } else if (WIFSIGNALED(status)) {
-                printf("Process %d terminated by signal %d\n", pid, WTERMSIG(status));
-            }
-            reportstatus(final_status);  // Report the final status of the background job
-
-            // pop the node
-            PIDNode *temp = *current;
-            *current = (*current)->next;
-            free(temp);
-        } else {
-            // Error
-            perror("waitpid");
-            current = &(*current)->next;
+while (*current != NULL) {
+    int status;
+    pid_t pid = (*current)->pid;
+    pid_t result = waitpid(pid, &status, WNOHANG);
+    
+    if (result == 0) {
+        current = &(*current)->next;
+    } else if (result == pid) {
+        int final_status = STATUS(status);
+        if (WIFEXITED(status)) {
+            fprintf(stderr, "Completed: %d (%d)\n", pid, WEXITSTATUS(status));
+        } else if (WIFSIGNALED(status)) {
+            fprintf(stderr, "Process %d terminated by signal %d\n", pid, WTERMSIG(status));
         }
+        reportstatus(final_status);
+        
+        PIDNode *temp = *current;
+        *current = (*current)->next;
+        free(temp);
+    } else {
+        perror("waitpid");
+        current = &(*current)->next;
     }
+}
+
 }
 
 
@@ -527,21 +600,14 @@ int processBG(const CMD *cmd) {
 
 int processSubcmd(const CMD *cmd) {
     pid_t pid = fork();
-
     if (pid < 0) {
         perror("fork");
         return errno;
     } else if (pid == 0) {
-        // Child process: execute the subcommand in a subshell
-        // Handle input/output redirections
-        if (handleInputRedirection(cmd) != 0) {
-            exit(errno);
-        }
-        if (handleOutputRedirection(cmd) != 0) {
+        if (handleInputRedirection(cmd) != 0 || handleOutputRedirection(cmd) != 0) {
             exit(errno);
         }
 
-        // Set local variables
         for (int i = 0; i < cmd->nLocal; i++) {
             if (setenv(cmd->locVar[i], cmd->locVal[i], 1) != 0) {
                 perror("setenv");
@@ -549,22 +615,20 @@ int processSubcmd(const CMD *cmd) {
             }
         }
 
-        // Recursively process the subcommand
-        int status = process(cmd->left); // Assuming the subcommand is in cmd->left
-        exit(status);
+        int status = process(cmd->left);
+        exit(status);  // Only exit with the process status
     } else {
-        // Parent process: wait for the child to finish
         int status;
         if (waitpid(pid, &status, 0) < 0) {
             perror("waitpid");
             return errno;
         }
-        
-        int final_status = STATUS(status);  // Get the final status
-        reportstatus(final_status);  // Report the final status
+        int final_status = STATUS(status);
+        reportstatus(final_status);
         return final_status;
     }
 }
+
 
 
 
