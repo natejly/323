@@ -27,6 +27,7 @@
 // Extract status from value returned by waitpid(); ensure that a process
 // that is killed has nonzero status; ignores the possibility of stop/continue.
 #define STATUS(x) (WIFEXITED(x) ? WEXITSTATUS(x) : 128+WTERMSIG(x))
+int process(const CMD *cmdList);
 
 
 

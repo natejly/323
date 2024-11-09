@@ -317,95 +317,74 @@ if (cmd->argc == 1) {
     return 0;
 }
 
-int checkPush(const CMD *cmd){
-    // Set local variables
-    for (int i = 0; i < cmd->nLocal; i++) {
-        if (setenv(cmd->locVar[i], cmd->locVal[i], 1) != 0) {
-            perror("setenv");
-            return errno;
-        }
-    }
-
-    // Get current directory
+int checkPush(const CMD *cmd) {
+    // Store current directory before pushing it to the stack
     char *cwd = getcwd(NULL, 0);
     if (cwd == NULL) {
         perror("getcwd");
         return errno;
     }
 
-    if (cmd->argc == 1) {
-        char *home = getenv("HOME");
-        if (home == NULL) {
-            perror("getenv");
-            free(cwd);  
-            return errno;
-        }
-        stackPush(home);
-        if (chdir(home) != 0) {
-            perror("pushd: chdir");
-            free(cwd);  
-            return errno;
-        }
-        printf("%s", getcwd(NULL, 0));
-        stackPrint();
-    } else if (cmd->argc == 2) {
-        stackPush(cwd);  
-        if (chdir(cmd->argv[1]) != 0) {
-            perror("pushd: chdir");
-            free(cwd);  
-            return errno;
-        }
-        char *new_cwd = getcwd(NULL, 0);
-        if (new_cwd != NULL) {
-            printf("%s", new_cwd);
-            free(new_cwd);  
-        }
-        stackPrint();
-    } else {
-        fprintf(stderr, "pushd: Usage: pushd [dir]\n");
-        free(cwd);  
+    // Check if a directory is provided in arguments
+    const char *target = (cmd->argc == 2) ? cmd->argv[1] : getenv("HOME");
+    if (target == NULL) {
+        fprintf(stderr, "pushd: HOME not set\n");
+        free(cwd);
         return 1;
     }
 
-    free(cwd);  
+    // Push the current directory onto the stack
+    stackPush(cwd);
+    free(cwd);
+
+    // Attempt to change to the target directory
+    if (chdir(target) != 0) {
+        perror("pushd: chdir");
+        stackPop();  // Pop the directory back if chdir fails
+        return errno;
+    }
+
+    // Print the new current directory and stack contents
+    char *new_cwd = getcwd(NULL, 0);
+    if (new_cwd != NULL) {
+        printf("%s\n", new_cwd);
+        free(new_cwd);
+    }
+    stackPrint();
+
     return 0;
 }
 
 
-int checkPop(const CMD *cmd){
-    // Set local variables
-    for (int i = 0; i < cmd->nLocal; i++) {
-        if (setenv(cmd->locVar[i], cmd->locVal[i], 1) != 0) {
-            perror("setenv");
-            return errno;
-        }
-    }
 
-    if(cmd->argc == 1){
-        if (head == NULL) {
-            fprintf(stderr, "popd: directory stack empty\n");
-            return 1;
-        }
-        char *dir = stackPop();
-        if (chdir(dir) != 0) {
-            perror("popd: chdir");
-            free(dir);
-            return errno;
-        }
-        free(dir); // Free dir after use
-
-        char *new_cwd = getcwd(NULL, 0);
-        if (new_cwd != NULL) {
-            printf("%s", new_cwd);
-            fflush(stdout);
-            free(new_cwd);
-        }
-        stackPrint();
-        return 0;
-    } else {
+int checkPop(const CMD *cmd) {
+    if (cmd->argc != 1) {
         fprintf(stderr, "popd: Usage: popd\n");
         return 1;
     }
+
+    // Check if the stack is empty
+    if (head == NULL) {
+        fprintf(stderr, "popd: directory stack empty\n");
+        return 1;
+    }
+
+    char *dir = stackPop();
+    if (chdir(dir) != 0) {
+        perror("popd: chdir");
+        free(dir);
+        return errno;
+    }
+
+    char *new_cwd = getcwd(NULL, 0);
+    if (new_cwd != NULL) {
+        printf("%s\n", new_cwd);
+        free(new_cwd);
+    }
+    stackPrint();
+
+    free(dir);
+    return 0;
 }
 
 int handleInputRedirection(const CMD *cmd) {
