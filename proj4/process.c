@@ -326,16 +326,15 @@ int checkCD(const CMD *cmd) {
         return status;
     }
 
-    status = 0;  // Success
+    status = 0;  
     reportstatus(status);
     return status;
 }
 
 int checkPush(const CMD *cmd) {
-    // Store current directory before pushing it to the stack
     if (cmd->argc != 2) {
         fprintf(stderr, "pushd: Usage: pushd <directory>\n");
-        reportstatus(1);  // Using 1 as a general error code for usage errors
+        reportstatus(1);  
         return 1;
     }
     char *cwd = getcwd(NULL, 0);
@@ -346,7 +345,6 @@ int checkPush(const CMD *cmd) {
         return errno;
     }
 
-    // Check if a directory is provided in arguments
     const char *target = (cmd->argc == 2) ? cmd->argv[1] : getenv("HOME");
     if (target == NULL) {
         fprintf(stderr, "pushd: HOME not set\n");
@@ -354,20 +352,16 @@ int checkPush(const CMD *cmd) {
         return 1;
     }
 
-    // Push the current directory onto the stack
     stackPush(cwd);
     free(cwd);
 
-    // Attempt to change to the target directory
     if (chdir(target) != 0) {
         perror("pushd: chdir");
         reportstatus(2);
-
-        stackPop();  // Pop the directory back if chdir fails
+        stackPop();  
         return errno;
     }
 
-    // Print the new current directory and stack contents
     char *new_cwd = getcwd(NULL, 0);
     if (new_cwd != NULL) {
         printf("%s", new_cwd);
@@ -378,9 +372,6 @@ int checkPush(const CMD *cmd) {
     return 0;
 }
 
-
-
-
 int checkPop(const CMD *cmd) {
     if (cmd->argc != 1) {
         fprintf(stderr, "popd: Usage: popd\n");
@@ -388,7 +379,6 @@ int checkPop(const CMD *cmd) {
         return 1;
     }
 
-    // Check if the stack is empty
     if (head == NULL) {
         fprintf(stderr, "popd: directory stack empty\n");
         reportstatus(1);
@@ -412,18 +402,15 @@ int checkPop(const CMD *cmd) {
         return errno;
     }
 
-    // Get the new current directory
     char *new_cwd = getcwd(NULL, 0);
     if (new_cwd == NULL) {
         perror("popd: getcwd");
         return errno;
     }
 
-    // Print the current directory
     printf("%s", new_cwd);
     free(new_cwd);
 
-    // Print the stack contents
     stackPrint();
 
     return 0;
@@ -454,7 +441,7 @@ int handleInputRedirection(const CMD *cmd) {
     if (write(fd_in, cmd->fromFile, strlen(cmd->fromFile)) < 0) {
         perror("write");
         close(fd_in);
-        unlink(template); // Ensure the temporary file is removed
+        unlink(template); 
         return errno;
     }
 
