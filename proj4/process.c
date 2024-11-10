@@ -71,7 +71,6 @@ char* stackPop(){
     char* ret = head->value;
     struct elt *e = head;
     head = e->next;
-    free(e->value); // Free the string memory as well
     free(e);
     return ret;
 }
@@ -203,7 +202,6 @@ int processSimple(const CMD *cmd) {
 
     if (cmd->argc > 0 && strcmp(cmd->argv[0], "cd") == 0) {
         int status = checkCD(cmd);
-        reportstatus(status);
         for (int i = 0; i < cmd->nLocal; i++) {
             if (ogs[i].original_val != NULL) {
                 setenv(ogs[i].var, ogs[i].original_val, 1);
@@ -217,7 +215,6 @@ int processSimple(const CMD *cmd) {
         return status;
     } else if (cmd->argc > 0 && strcmp(cmd->argv[0], "pushd") == 0) {
         int status = checkPush(cmd);
-        reportstatus(status);
         
         for (int i = 0; i < cmd->nLocal; i++) {
             if (ogs[i].original_val != NULL) {
@@ -258,16 +255,23 @@ int processSimple(const CMD *cmd) {
         
         return errno;
     } else if (pid == 0) {
+
         // Child process
         if (handleInputRedirection(cmd) != 0) {
-            exit(errno);
+                        reportstatus(13);
+
+            exit(13);
+
         }
         if (handleOutputRedirection(cmd) != 0) {
-            exit(errno);
+                        reportstatus(13);
+            exit(13);
+
         }
         if (execvp(cmd->argv[0], cmd->argv) < 0) {
             perror("execvp");
-            exit(errno);
+            reportstatus(2);
+            exit(2);
         }
     } else {
         int status;
@@ -294,34 +298,51 @@ int processSimple(const CMD *cmd) {
     return 0;  
 }
 
-int checkCD(const CMD *cmd){
+int checkCD(const CMD *cmd) {
     const char *target;
-if (cmd->argc == 1) {
-    target = getenv("HOME");
-    if (target == NULL) {
-        fprintf(stderr, "cd: HOME not set\n");
-        return 1;
+    int status;
+
+    if (cmd->argc == 1) {
+        target = getenv("HOME");
+        if (target == NULL) {
+            fprintf(stderr, "cd: HOME not set\n");
+            status = 1;  
+            reportstatus(status);
+            return status;
+        }
+    } else if (cmd->argc == 2) {
+        target = cmd->argv[1];
+    } else {
+        fprintf(stderr, "cd: too many arguments\n");
+        status = 1;  
+        reportstatus(status);
+        return status;
     }
-} else if (cmd->argc == 2) {
-    target = cmd->argv[1];
-} else {
-    fprintf(stderr, "cd: too many arguments\n");
-    return 1;
-}
 
     if (chdir(target) != 0) {
         perror("cd");
-        return errno;
+        status = errno;  
+        reportstatus(2);
+        return status;
     }
 
-    return 0;
+    status = 0;  // Success
+    reportstatus(status);
+    return status;
 }
 
 int checkPush(const CMD *cmd) {
     // Store current directory before pushing it to the stack
+    if (cmd->argc != 2) {
+        fprintf(stderr, "pushd: Usage: pushd <directory>\n");
+        reportstatus(1);  // Using 1 as a general error code for usage errors
+        return 1;
+    }
     char *cwd = getcwd(NULL, 0);
     if (cwd == NULL) {
         perror("getcwd");
+        reportstatus(1);
+
         return errno;
     }
 
@@ -340,6 +361,8 @@ int checkPush(const CMD *cmd) {
     // Attempt to change to the target directory
     if (chdir(target) != 0) {
         perror("pushd: chdir");
+        reportstatus(2);
+
         stackPop();  // Pop the directory back if chdir fails
         return errno;
     }
@@ -347,47 +370,68 @@ int checkPush(const CMD *cmd) {
     // Print the new current directory and stack contents
     char *new_cwd = getcwd(NULL, 0);
     if (new_cwd != NULL) {
-        printf("%s\n", new_cwd);
+        printf("%s", new_cwd);
         free(new_cwd);
     }
     stackPrint();
 
     return 0;
 }
+
 
 
 
 int checkPop(const CMD *cmd) {
     if (cmd->argc != 1) {
         fprintf(stderr, "popd: Usage: popd\n");
+        reportstatus(1);
         return 1;
     }
 
     // Check if the stack is empty
     if (head == NULL) {
         fprintf(stderr, "popd: directory stack empty\n");
+        reportstatus(1);
         return 1;
     }
 
     char *dir = stackPop();
+    if (dir == NULL) {
+        fprintf(stderr, "popd: failed to pop directory\n");
+        reportstatus(1);
+        //FIXME
+
+        return 1;
+    }
+
     if (chdir(dir) != 0) {
         perror("popd: chdir");
         free(dir);
+        reportstatus(errno);
+
         return errno;
     }
 
+    // Get the new current directory
     char *new_cwd = getcwd(NULL, 0);
-    if (new_cwd != NULL) {
-        printf("%s\n", new_cwd);
-        free(new_cwd);
+    if (new_cwd == NULL) {
+        perror("popd: getcwd");
+        return errno;
     }
+
+    // Print the current directory
+    printf("%s", new_cwd);
+    free(new_cwd);
+
+    // Print the stack contents
     stackPrint();
 
-    free(dir);
     return 0;
 }
 
+
 int handleInputRedirection(const CMD *cmd) {
+
     if (cmd->fromType == NONE) {
         return 0;
     }
@@ -403,6 +447,8 @@ int handleInputRedirection(const CMD *cmd) {
         fd_in = mkstemp(template);
         if (fd_in < 0) {
             perror("mkstemp");
+            exit(13);
+
             return errno;
         }
     if (write(fd_in, cmd->fromFile, strlen(cmd->fromFile)) < 0) {
@@ -443,6 +489,8 @@ int handleOutputRedirection(const CMD *cmd) {
     }
     if (fd_out < 0) {
         perror("open");
+
+        exit(13);
         return errno;
     }
     if (cmd->toType == RED_OUT_ERR) {
@@ -457,6 +505,7 @@ int handleOutputRedirection(const CMD *cmd) {
         return errno;
     }
     close(fd_out);
+    
     return 0;
 }
 
@@ -601,7 +650,7 @@ int processSubcmd(const CMD *cmd) {
         return errno;
     } else if (pid == 0) {
         if (handleInputRedirection(cmd) != 0 || handleOutputRedirection(cmd) != 0) {
-            exit(errno);
+            return 1;
         }
 
         varlist *ogs = malloc(cmd->nLocal * sizeof(varlist));
