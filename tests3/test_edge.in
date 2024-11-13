@@ -1,0 +1,3 @@
+# Testing script with temporary files creation and cleanup
+for i in {1..10}; do touch "/tmp/test_file_$i"; done
+echo "Temporary files created:"; ls /tmp/test_file_*; rm /tmp/test_file_*
