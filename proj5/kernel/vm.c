@@ -119,17 +119,18 @@ int virtual_memory_map(x86_64_pagetable* pagetable, uintptr_t va,
         if (cur_index123 != last_index123) {
             // TODO
             // find pointer to last level pagetable for current va
-
-
+            l1pagetable = lookup_l1pagetable(pagetable, va, perm);
 
             last_index123 = cur_index123;
         }
         if ((perm & PTE_P) && l1pagetable) { // if page is marked present
             // TODO
             // map `pa` at appropriate entry with permissions `perm`
+             int index = PAGEINDEX(va, 3); // Get the index for L1 page table
+            l1pagetable->entry[index] = pa | perm;
         } else if (l1pagetable) { // if page is NOT marked present
-            // TODO
-            // map to address 0 with `perm`
+             int index = PAGEINDEX(va, 3); // Get the index for L1 page table
+            l1pagetable->entry[index] = 0 | perm;
         } else if (perm & PTE_P) {
             // error, no allocated l1 page found for va
             log_printf("[Kern Info] failed to find l1pagetable address at " __FILE__ ": %d\n", __LINE__);
@@ -159,7 +160,8 @@ static x86_64_pagetable* lookup_l1pagetable(x86_64_pagetable* pagetable,
         // TODO
         // find page entry by finding `ith` level index of va to index pagetable entries of `pt`
         // you should read x86-64.h to understand relevant structs and macros to make this part easier
-        x86_64_pageentry_t pe = 0; // replace this
+                int index = PAGEINDEX(va, i); // Get the index for the current level
+        x86_64_pageentry_t pe = pt->entry[index];
 
         if (!(pe & PTE_P)) { // address of next level should be present AND PTE_P should be set, error otherwise
             log_printf("[Kern Info] Error looking up l1pagetable: Pagetable address: 0x%x perm: 0x%x."
@@ -180,10 +182,7 @@ static x86_64_pagetable* lookup_l1pagetable(x86_64_pagetable* pagetable,
         if (perm & PTE_U) {       // if requester wants PTE_U,
             assert(pe & PTE_U);   //   entry must allow PTE_U
         }
-
-        // TODO
-        // set pt to physical address to next pagetable using `pe`
-        pt = 0; // replace this
+        pt = (x86_64_pagetable*) PTE_ADDR(pe);
     }
     return pt;
 }
