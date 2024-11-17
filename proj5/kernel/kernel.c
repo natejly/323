@@ -87,7 +87,6 @@ void kernel(const char* command) {
     console_clear();
     timer_init(HZ);
 
-
     // Set up process descriptors
     memset(processes, 0, sizeof(processes));
     for (pid_t i = 0; i < NPROC; i++) {
@@ -128,11 +127,13 @@ virtual_memory_map(kernel_pagetable, 0, 0,
 
 // helper function for reserving pages which returns return its page address
 
-x86_64_pagetable* allocate_page_table(int8_t owner) {
+x86_64_pagetable* reserve_page(int8_t owner) {
     for (uintptr_t addr = 0; addr < MEMSIZE_PHYSICAL; addr += PAGESIZE) {
-        if (pageinfo[PAGENUMBER(addr)].refcount == 0) {
-            pageinfo[PAGENUMBER(addr)].owner = owner;
-            pageinfo[PAGENUMBER(addr)].refcount = 1;
+        int pn = PAGENUMBER(addr);
+
+        if (pageinfo[pn].refcount == 0) {
+            pageinfo[pn].owner = owner;
+            pageinfo[pn].refcount = 1;
             memset((void*) addr, 0, PAGESIZE);
             return (x86_64_pagetable*) addr; 
         }
@@ -142,11 +143,11 @@ x86_64_pagetable* allocate_page_table(int8_t owner) {
 
 void process_setup(pid_t pid, int program_number) {
     process_init(&processes[pid], 0);
-    x86_64_pagetable *l4 = allocate_page_table(pid);
-    x86_64_pagetable *l3 = allocate_page_table(pid);
-    x86_64_pagetable *l2 = allocate_page_table(pid);
-    x86_64_pagetable *l1_1 = allocate_page_table(pid);
-    x86_64_pagetable *l1_0 = allocate_page_table(pid);
+    x86_64_pagetable *l4 = reserve_page(pid);
+    x86_64_pagetable *l3 = reserve_page(pid);
+    x86_64_pagetable *l2 = reserve_page(pid);
+    x86_64_pagetable *l1_1 = reserve_page(pid);
+    x86_64_pagetable *l1_0 = reserve_page(pid);
 
     l4->entry[0] = (x86_64_pageentry_t)l3 | PTE_P | PTE_W | PTE_U;
     l3->entry[0] = (x86_64_pageentry_t)l2 | PTE_P | PTE_W | PTE_U;
@@ -246,6 +247,17 @@ void syscall_mem_tog(proc* process){
 //    then calls exception().
 //
 //    Note that hardware interrupts are disabled whenever the kernel is running.
+uintptr_t find_page(int8_t owner) {
+    for (uintptr_t addr = 0; addr < MEMSIZE_PHYSICAL; addr += PAGESIZE) {
+        int pn = PAGENUMBER(addr);
+        if (pageinfo[pn].refcount == 0) {
+            pageinfo[pn].owner = owner;
+            pageinfo[pn].refcount = 1;
+            return addr; 
+        }
+    }
+    return 0; 
+}
 
 void exception(x86_64_registers* reg) {
     // Copy the saved registers into the `current` process descriptor
@@ -300,32 +312,43 @@ void exception(x86_64_registers* reg) {
         schedule();
         break;                  /* will not be reached */
 
-    case INT_SYS_PAGE_ALLOC: {    
-        uintptr_t addr = current->p_registers.reg_rdi;
-        // check if address is page aligned
-        if(addr % PAGESIZE != 0){
-            current->p_registers.reg_rax = -1;
-            break;
-        }
-        // check that we are within 
-        if(addr >= MEMSIZE_VIRTUAL || addr < PROC_START_ADDR){  
-            current->p_registers.reg_rax = -1;
-            break;
-        }
-        int r = assign_physical_page(addr, current->p_pid);
-        // if page was already allocated
-        if(r < 0){
-            current->p_registers.reg_rax = -1;
-            break;
-        }
-        // map the page
-        if (r >= 0) {
-            virtual_memory_map(current->p_pagetable, addr, addr,
-                               PAGESIZE, PTE_P | PTE_W | PTE_U);
-        }
-        current->p_registers.reg_rax = r;
+case INT_SYS_PAGE_ALLOC: {
+    uintptr_t va = current->p_registers.reg_rdi;
+    // check allignment and bounds
+    if (va % PAGESIZE != 0) {
+        current->p_registers.reg_rax = -1; 
         break;
     }
+    if (va >= MEMSIZE_VIRTUAL) {
+        current->p_registers.reg_rax = -1; 
+        break;
+    }
+    if (va < PROC_START_ADDR) {
+        current->p_registers.reg_rax = -1; 
+        break;
+    }   
+    uintptr_t pa = find_page(current->p_pid);
+    if (pa == 0) {
+        current->p_registers.reg_rax = -1; 
+        break;
+    }
+    int perm = PTE_P | PTE_W | PTE_U;
+
+    int r = virtual_memory_map(current->p_pagetable, va, pa, PAGESIZE, perm);
+
+    if (r != 0) {
+        // If mapping fails, free the physical page
+        pageinfo[PAGENUMBER(pa)].refcount = 0;
+        pageinfo[PAGENUMBER(pa)].owner = PO_FREE;
+        current->p_registers.reg_rax = -1;
+        break;
+    }
+
+    // Success: Return 0
+    current->p_registers.reg_rax = 0;
+    break;
+}
+
 
     case INT_SYS_MAPPING:
     {
