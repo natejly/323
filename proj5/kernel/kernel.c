@@ -128,29 +128,50 @@ virtual_memory_map(kernel_pagetable, 0, 0,
 
 // helper function for reserving pages which returns return its page address
 
-uintptr_t reserve_page(int8_t owner){
-    for (int i = 0; i < PAGENUMBER(MEMSIZE_PHYSICAL); i++) {
-        if (pageinfo[i].refcount == 0 && pageinfo[i].owner == PO_FREE) {
-            pageinfo[i].owner = owner;
-            pageinfo[i].refcount = 1;
-            return PAGEADDRESS(i);
+x86_64_pagetable* allocate_page_table(int8_t owner) {
+    for (uintptr_t addr = 0; addr < MEMSIZE_PHYSICAL; addr += PAGESIZE) {
+        if (pageinfo[PAGENUMBER(addr)].refcount == 0) {
+            pageinfo[PAGENUMBER(addr)].owner = owner;
+            pageinfo[PAGENUMBER(addr)].refcount = 1;
+            memset((void*) addr, 0, PAGESIZE);
+            return (x86_64_pagetable*) addr; 
         }
     }
-    return 1;
+    return NULL;
 }
 
 void process_setup(pid_t pid, int program_number) {
     process_init(&processes[pid], 0);
-    // reserve a page for the page table
-    uintptr_t pagetable_page = reserve_page(pid);
-    // make sure the page table page is reserved
-    assert(pagetable_page != 1);
-    // memset the page table page to 0
-    memset((x86_64_pagetable *)pagetable_page, 0, PAGESIZE);
+    x86_64_pagetable *l4 = allocate_page_table(pid);
+    x86_64_pagetable *l3 = allocate_page_table(pid);
+    x86_64_pagetable *l2 = allocate_page_table(pid);
+    x86_64_pagetable *l1_1 = allocate_page_table(pid);
+    x86_64_pagetable *l1_0 = allocate_page_table(pid);
 
+    l4->entry[0] = (x86_64_pageentry_t)l3 | PTE_P | PTE_W | PTE_U;
+    l3->entry[0] = (x86_64_pageentry_t)l2 | PTE_P | PTE_W | PTE_U;
+    l2->entry[0] = (x86_64_pageentry_t)l1_0 | PTE_P | PTE_W | PTE_U;
+    l2->entry[1] = (x86_64_pageentry_t)l1_1 | PTE_P | PTE_W | PTE_U;
 
-    processes[pid].p_pagetable = kernel_pagetable;
-    ++pageinfo[PAGENUMBER(kernel_pagetable)].refcount; //increase refcount since kernel_pagetable was used
+    for (uintptr_t i = 0; i < PROC_START_ADDR; i += PAGESIZE){
+
+        vamapping vam = virtual_memory_lookup(kernel_pagetable, i);
+        if (vam.pn != -1){
+        int r = virtual_memory_map(l4, i, vam.pa, PAGESIZE, vam.perm);
+        if (r != 0){
+            current->p_registers.reg_rax = -1;
+            return;
+        }
+        }
+        
+    }
+    processes[pid].p_pagetable = l4;
+    // FIXME
+    virtual_memory_map(l4, 0, 0,
+                   PROC_START_ADDR, PTE_P | PTE_W); 
+
+    virtual_memory_map(l4, CONSOLE_ADDR, CONSOLE_ADDR,
+                       PAGESIZE, PTE_P | PTE_W | PTE_U);
 
     int r = program_load(&processes[pid], program_number, NULL);
     assert(r >= 0);
