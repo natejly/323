@@ -110,7 +110,11 @@ void kernel(const char* command) {
             process_setup(i, i - 1);
         }
     }
+virtual_memory_map(kernel_pagetable, 0, 0,
+                   PROC_START_ADDR, PTE_P | PTE_W); 
 
+    virtual_memory_map(kernel_pagetable, CONSOLE_ADDR, CONSOLE_ADDR,
+                       PAGESIZE, PTE_P | PTE_W | PTE_U);
 
     // Switch to the first process using run()
     run(&processes[1]);
@@ -122,8 +126,29 @@ void kernel(const char* command) {
 //    This loads the application's code and data into memory, sets its
 //    %rip and %rsp, gives it a stack page, and marks it as runnable.
 
+// helper function for reserving pages which returns return its page address
+
+uintptr_t reserve_page(int8_t owner){
+    for (int i = 0; i < PAGENUMBER(MEMSIZE_PHYSICAL); i++) {
+        if (pageinfo[i].refcount == 0 && pageinfo[i].owner == PO_FREE) {
+            pageinfo[i].owner = owner;
+            pageinfo[i].refcount = 1;
+            return PAGEADDRESS(i);
+        }
+    }
+    return 1;
+}
+
 void process_setup(pid_t pid, int program_number) {
     process_init(&processes[pid], 0);
+    // reserve a page for the page table
+    uintptr_t pagetable_page = reserve_page(pid);
+    // make sure the page table page is reserved
+    assert(pagetable_page != 1);
+    // memset the page table page to 0
+    memset((x86_64_pagetable *)pagetable_page, 0, PAGESIZE);
+
+
     processes[pid].p_pagetable = kernel_pagetable;
     ++pageinfo[PAGENUMBER(kernel_pagetable)].refcount; //increase refcount since kernel_pagetable was used
 
@@ -254,9 +279,25 @@ void exception(x86_64_registers* reg) {
         schedule();
         break;                  /* will not be reached */
 
-    case INT_SYS_PAGE_ALLOC: {
+    case INT_SYS_PAGE_ALLOC: {    
         uintptr_t addr = current->p_registers.reg_rdi;
+        // check if address is page aligned
+        if(addr % PAGESIZE != 0){
+            current->p_registers.reg_rax = -1;
+            break;
+        }
+        // check that we are within 
+        if(addr >= MEMSIZE_VIRTUAL || addr < PROC_START_ADDR){  
+            current->p_registers.reg_rax = -1;
+            break;
+        }
         int r = assign_physical_page(addr, current->p_pid);
+        // if page was already allocated
+        if(r < 0){
+            current->p_registers.reg_rax = -1;
+            break;
+        }
+        // map the page
         if (r >= 0) {
             virtual_memory_map(current->p_pagetable, addr, addr,
                                PAGESIZE, PTE_P | PTE_W | PTE_U);
