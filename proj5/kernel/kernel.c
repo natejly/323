@@ -140,6 +140,18 @@ x86_64_pagetable* reserve_page(int8_t owner) {
     }
     return NULL;
 }
+uintptr_t find_page(int8_t owner) {
+    for (uintptr_t addr = 0; addr < MEMSIZE_PHYSICAL; addr += PAGESIZE) {
+        int pn = PAGENUMBER(addr);
+        if (pageinfo[pn].refcount == 0) {
+            pageinfo[pn].owner = owner;
+            pageinfo[pn].refcount = 1;
+            return addr; 
+        }
+    }
+    return 0; 
+}
+
 
 void process_setup(pid_t pid, int program_number) {
     process_init(&processes[pid], 0);
@@ -154,22 +166,16 @@ void process_setup(pid_t pid, int program_number) {
     l2->entry[0] = (x86_64_pageentry_t)l1_0 | PTE_P | PTE_W | PTE_U;
     l2->entry[1] = (x86_64_pageentry_t)l1_1 | PTE_P | PTE_W | PTE_U;
 
-    for (uintptr_t i = 0; i < PROC_START_ADDR; i += PAGESIZE){
-
-        vamapping vam = virtual_memory_lookup(kernel_pagetable, i);
-        if (vam.pn != -1){
-        int r = virtual_memory_map(l4, i, vam.pa, PAGESIZE, vam.perm);
-        if (r != 0){
-            current->p_registers.reg_rax = -1;
-            return;
+    for (uintptr_t va = 0; va < PROC_START_ADDR; va += PAGESIZE) {
+        vamapping vam = virtual_memory_lookup(kernel_pagetable, va);
+        if (vam.pn != -1) {
+            virtual_memory_map(l4, va, vam.pa, PAGESIZE, vam.perm & ~PTE_U);
         }
-        }
-        
     }
     processes[pid].p_pagetable = l4;
     // FIXME
-    virtual_memory_map(l4, 0, 0,
-                   PROC_START_ADDR, PTE_P | PTE_W); 
+    // virtual_memory_map(l4, 0, 0,
+    //                PROC_START_ADDR, PTE_P | PTE_W); 
 
     virtual_memory_map(l4, CONSOLE_ADDR, CONSOLE_ADDR,
                        PAGESIZE, PTE_P | PTE_W | PTE_U);
@@ -177,11 +183,9 @@ void process_setup(pid_t pid, int program_number) {
     int r = program_load(&processes[pid], program_number, NULL);
     assert(r >= 0);
 
-    processes[pid].p_registers.reg_rsp = PROC_START_ADDR + PROC_SIZE * pid;
-    uintptr_t stack_page = processes[pid].p_registers.reg_rsp - PAGESIZE;
-    assign_physical_page(stack_page, pid);
-    virtual_memory_map(processes[pid].p_pagetable, stack_page, stack_page,
-                       PAGESIZE, PTE_P | PTE_W | PTE_U);
+    virtual_memory_map(l4, MEMSIZE_VIRTUAL - PAGESIZE, find_page(pid), PAGESIZE, PTE_P | PTE_W | PTE_U);
+    processes[pid].p_registers.reg_rsp = MEMSIZE_VIRTUAL;
+
     processes[pid].p_state = P_RUNNABLE;
 }
 
@@ -247,17 +251,6 @@ void syscall_mem_tog(proc* process){
 //    then calls exception().
 //
 //    Note that hardware interrupts are disabled whenever the kernel is running.
-uintptr_t find_page(int8_t owner) {
-    for (uintptr_t addr = 0; addr < MEMSIZE_PHYSICAL; addr += PAGESIZE) {
-        int pn = PAGENUMBER(addr);
-        if (pageinfo[pn].refcount == 0) {
-            pageinfo[pn].owner = owner;
-            pageinfo[pn].refcount = 1;
-            return addr; 
-        }
-    }
-    return 0; 
-}
 
 void exception(x86_64_registers* reg) {
     // Copy the saved registers into the `current` process descriptor

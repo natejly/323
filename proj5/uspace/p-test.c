@@ -1,71 +1,48 @@
 #include "process.h"
 #include "lib.h"
-#define ALLOC_SLOWDOWN 100
 
 extern uint8_t end[];
 
-// These global variables go on the data page.
 uint8_t* heap_top;
 uint8_t* stack_bottom;
 
-#define CANARY 0xDEADBEEF
-#define MULT   0x000B0000
-
-// write to entire page with `value`
-void write_page(uint8_t *addr, uint32_t value){
-    uint32_t * int_addr = (uint32_t *) addr;
-    for(unsigned long i = 0 ; i < PAGESIZE/sizeof(uint32_t) ; i++){
-        int_addr[i] = value;
-    }
-}
-
-// check if enter page contains `value`
-void assert_page(uint8_t * addr, uint32_t value){
-    uint32_t * int_addr = (uint32_t *) addr;
-    for(unsigned long i = 0 ; i < PAGESIZE/sizeof(uint32_t) ; i++){
-        assert(int_addr[i] == value && "Error: page was corrupted!");
-    }
-}
-
-// Behaves similar to p-allocator.c, except it writes to the entire page
-// and checks if the memory was untouched
+// checks if multiple processes can allocate at the same Virtual Memory Address
+// (run at least two instances)
 
 void process_main(void) {
     pid_t p = sys_getpid();
     srand(p);
-
     // The heap starts on the page right after the 'end' symbol,
     // whose address is the first address not allocated to process code
     // or data.
     heap_top = ROUNDUP((uint8_t*) end, PAGESIZE);
-    uint8_t * heap_end = heap_top;
 
-    // The bottom of the stack is the first address on the current
-    // stack page (this process never needs more than one stack page).
-    stack_bottom = ROUNDDOWN((uint8_t*) read_rsp() - 1, PAGESIZE);
+    app_printf(p, "Make sure you are running this test with at least 2 processes running by hitting 2!\n");
 
-    // Allocate heap pages until (1) hit the stack (out of address space)
-    // or (2) allocation fails (out of physical memory).
-    while (1) {
-        if ((rand() % ALLOC_SLOWDOWN) < p) {
-            if (heap_top == stack_bottom || sys_page_alloc(heap_top) < 0) {
-                break;
-            }
-            // write with random canary and process ID based unique value to check later
-            write_page(heap_top, CANARY + p * MULT); 
-            heap_top += PAGESIZE;
-        }
+    // check if process can access each others memory
+
+    int x = sys_page_alloc((void *) (heap_top));
+
+    if(x != 0)
+        panic("Error, couldn't allocate same memory location!\n");
+
+    // yield to make sure other process also runs before continuing
+    sys_yield();
+
+    // write to allocd page
+    *heap_top = p;
+
+    // again, yield to allow other process to make progress before continuing
+    // perhaps redundant
+
+    sys_yield();
+
+    // Now, test at least 100 times to see if values will ever change
+    for(int i = 0 ; i < 100 ; i++){
+        if(*heap_top != p)
+            panic("Error, value changed! process memory not isolated!\n");
         sys_yield();
     }
-    //check all addresses so far
-    while(heap_end < heap_top){
-        // for all alloc'd pages, check if page still contains same value
-        assert_page(heap_end, CANARY + p * MULT);
-        heap_end += PAGESIZE;
-    }
 
-    // After running out of memory, do nothing forever, done here
-    while (1) {
-        sys_yield();
-    }
+    TEST_PASS();
 }
