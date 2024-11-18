@@ -51,7 +51,6 @@ void virtual_memory_init(void) {
     set_pagetable(kernel_pagetable);
 }
 
-
 // set_pagetable
 //    Change page directory. lcr3() is the hardware instruction;
 //    set_pagetable() additionally checks that important kernel procedures are
@@ -160,7 +159,7 @@ static x86_64_pagetable* lookup_l1pagetable(x86_64_pagetable* pagetable,
         // TODO
         // find page entry by finding `ith` level index of va to index pagetable entries of `pt`
         // you should read x86-64.h to understand relevant structs and macros to make this part easier
-                int index = PAGEINDEX(va, i); // Get the index for the current level
+        int index = PAGEINDEX(va, i); // Get the index for the current level
         x86_64_pageentry_t pe = pt->entry[index];
 
         if (!(pe & PTE_P)) { // address of next level should be present AND PTE_P should be set, error otherwise
@@ -207,4 +206,3 @@ vamapping virtual_memory_lookup(x86_64_pagetable* pagetable, uintptr_t va) {
     }
     return vam;
 }
-

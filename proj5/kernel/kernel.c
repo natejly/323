@@ -153,8 +153,7 @@ uintptr_t find_page(int8_t owner) {
 }
 
 
-void process_setup(pid_t pid, int program_number) {
-    process_init(&processes[pid], 0);
+x86_64_pagetable* make_pages(pid_t pid){
     x86_64_pagetable *l4 = reserve_page(pid);
     x86_64_pagetable *l3 = reserve_page(pid);
     x86_64_pagetable *l2 = reserve_page(pid);
@@ -172,6 +171,14 @@ void process_setup(pid_t pid, int program_number) {
             virtual_memory_map(l4, va, vam.pa, PAGESIZE, vam.perm & ~PTE_U);
         }
     }
+    return l4;
+}
+
+void process_setup(pid_t pid, int program_number) {
+    process_init(&processes[pid], 0);
+
+    x86_64_pagetable *l4 = make_pages(pid);
+
     processes[pid].p_pagetable = l4;
     // FIXME
     // virtual_memory_map(l4, 0, 0,
@@ -341,6 +348,92 @@ case INT_SYS_PAGE_ALLOC: {
     current->p_registers.reg_rax = 0;
     break;
 }
+case INT_SYS_FORK: {
+    // Step 1: Find a free process slot
+    pid_t child_pid = -1;
+    for (pid_t i = 1; i < NPROC; ++i) {
+        if (processes[i].p_state == P_FREE) {
+            child_pid = i;
+            break;
+        }
+    }
+
+    // If no free slot, return -1
+    if (child_pid == -1) {
+        current->p_registers.reg_rax = -1;
+        break;
+    }
+
+    // Step 2: Reserve the new process slot
+    proc* parent = current;
+    proc* child = &processes[child_pid];
+    process_init(child, child_pid);
+
+    // Step 3: Allocate a new page table for the child
+    x86_64_pagetable* child_pagetable = make_pages(child_pid);
+    if (!child_pagetable) {
+        current->p_registers.reg_rax = -1;
+        break;
+    }
+    child->p_pagetable = child_pagetable;
+
+    int failed = 0;
+    for (uintptr_t va = PROC_START_ADDR; va < MEMSIZE_VIRTUAL; va += PAGESIZE) {
+        vamapping parent_mapping = virtual_memory_lookup(parent->p_pagetable, va);
+
+        if (parent_mapping.pn == -1) {
+            continue; // Skip unmapped pages
+        }
+
+        // mapp console
+        virtual_memory_map(child_pagetable, CONSOLE_ADDR, parent_mapping.pa, PAGESIZE, parent_mapping.perm);
+
+        // Allocate a new physical page for the child
+        uintptr_t new_pa = find_page(child_pid);
+        if (!new_pa) {
+            failed = 1;
+            break;
+        }
+        // Copy data from parent's page to the new page
+        memcpy((void*) new_pa, (void*) parent_mapping.pa, PAGESIZE);
+
+        // Map the new page in the child's page table
+        if (virtual_memory_map(child_pagetable, va, new_pa, PAGESIZE, parent_mapping.perm) < 0) {
+            failed = 1;
+            pageinfo[PAGENUMBER(new_pa)].refcount = 0; // Free the allocated page
+            pageinfo[PAGENUMBER(new_pa)].owner = PO_FREE;
+            break;
+        }
+    }
+
+    // Step 5: Handle failure
+    if (failed) {
+        for (uintptr_t va = PROC_START_ADDR; va < MEMSIZE_VIRTUAL; va += PAGESIZE) {
+            vamapping child_mapping = virtual_memory_lookup(child_pagetable, va);
+            if (child_mapping.pn != -1) {
+                pageinfo[child_mapping.pn].refcount = 0;
+                pageinfo[child_mapping.pn].owner = PO_FREE;
+            }
+        }
+        pageinfo[PAGENUMBER((uintptr_t) child_pagetable)].refcount = 0;
+        pageinfo[PAGENUMBER((uintptr_t) child_pagetable)].owner = PO_FREE;
+        child->p_state = P_FREE;
+        current->p_registers.reg_rax = -1;
+        break;
+    }
+
+    // Step 6: Initialize child registers
+    child->p_registers = parent->p_registers;
+    child->p_registers.reg_rax = 0; // Fork returns 0 in the child
+
+    // Step 7: Mark child as runnable
+    child->p_state = P_RUNNABLE;
+
+    // Step 8: Return child's PID to the parent
+    current->p_registers.reg_rax = child_pid;
+    break;
+
+    }
 
 
     case INT_SYS_MAPPING:
