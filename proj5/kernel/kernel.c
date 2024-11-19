@@ -258,7 +258,19 @@ void syscall_mem_tog(proc* process){
 //    then calls exception().
 //
 //    Note that hardware interrupts are disabled whenever the kernel is running.
-
+void unmap(x86_64_pagetable* child_table, proc* child){
+        for (uintptr_t va = PROC_START_ADDR; va < MEMSIZE_VIRTUAL; va += PAGESIZE) {
+            vamapping child_map = virtual_memory_lookup(child_table, va);
+            if (child_map.pn != -1) {
+                pageinfo[child_map.pn].refcount = 0;
+                pageinfo[child_map.pn].owner = PO_FREE;
+            }
+        }
+        pageinfo[PAGENUMBER((uintptr_t) child_table)].refcount = 0;
+        pageinfo[PAGENUMBER((uintptr_t) child_table)].owner = PO_FREE;
+        child->p_state = P_FREE;
+        current->p_registers.reg_rax = -1;
+}
 void exception(x86_64_registers* reg) {
     // Copy the saved registers into the `current` process descriptor
     // and always use the kernel's page table.
@@ -370,23 +382,22 @@ case INT_SYS_FORK: {
     process_init(child, child_pid);
 
     // Step 3: Allocate a new page table for the child
-    x86_64_pagetable* child_pagetable = make_pages(child_pid);
-    if (!child_pagetable) {
+    x86_64_pagetable* child_table = make_pages(child_pid);
+    if (!child_table) {
         current->p_registers.reg_rax = -1;
         break;
     }
-    child->p_pagetable = child_pagetable;
+    child->p_pagetable = child_table;
 
     int failed = 0;
     for (uintptr_t va = PROC_START_ADDR; va < MEMSIZE_VIRTUAL; va += PAGESIZE) {
         vamapping parent_mapping = virtual_memory_lookup(parent->p_pagetable, va);
 
         if (parent_mapping.pn == -1) {
-            continue; // Skip unmapped pages
+            continue; 
         }
-
         // mapp console
-        virtual_memory_map(child_pagetable, CONSOLE_ADDR, parent_mapping.pa, PAGESIZE, parent_mapping.perm);
+        virtual_memory_map(child_table, CONSOLE_ADDR, parent_mapping.pa, PAGESIZE, parent_mapping.perm);
 
         // Allocate a new physical page for the child
         uintptr_t new_pa = find_page(child_pid);
@@ -394,47 +405,30 @@ case INT_SYS_FORK: {
             failed = 1;
             break;
         }
-        // Copy data from parent's page to the new page
         memcpy((void*) new_pa, (void*) parent_mapping.pa, PAGESIZE);
+        int r = virtual_memory_map(child_table, va, new_pa, PAGESIZE, parent_mapping.perm);
 
-        // Map the new page in the child's page table
-        if (virtual_memory_map(child_pagetable, va, new_pa, PAGESIZE, parent_mapping.perm) < 0) {
+        if (r < 0) {
             failed = 1;
-            pageinfo[PAGENUMBER(new_pa)].refcount = 0; // Free the allocated page
+            pageinfo[PAGENUMBER(new_pa)].refcount = 0; 
             pageinfo[PAGENUMBER(new_pa)].owner = PO_FREE;
             break;
         }
     }
 
-    // Step 5: Handle failure
-    if (failed) {
-        for (uintptr_t va = PROC_START_ADDR; va < MEMSIZE_VIRTUAL; va += PAGESIZE) {
-            vamapping child_mapping = virtual_memory_lookup(child_pagetable, va);
-            if (child_mapping.pn != -1) {
-                pageinfo[child_mapping.pn].refcount = 0;
-                pageinfo[child_mapping.pn].owner = PO_FREE;
-            }
-        }
-        pageinfo[PAGENUMBER((uintptr_t) child_pagetable)].refcount = 0;
-        pageinfo[PAGENUMBER((uintptr_t) child_pagetable)].owner = PO_FREE;
-        child->p_state = P_FREE;
-        current->p_registers.reg_rax = -1;
+    if (failed != 0) {
+        unmap(child_table, child);
+
         break;
     }
 
-    // Step 6: Initialize child registers
     child->p_registers = parent->p_registers;
-    child->p_registers.reg_rax = 0; // Fork returns 0 in the child
-
-    // Step 7: Mark child as runnable
+    child->p_registers.reg_rax = 0; 
     child->p_state = P_RUNNABLE;
-
-    // Step 8: Return child's PID to the parent
     current->p_registers.reg_rax = child_pid;
     break;
 
     }
-
 
     case INT_SYS_MAPPING:
     {
@@ -477,7 +471,6 @@ case INT_SYS_FORK: {
         break;                  /* will not be reached */
 
     }
-
 
     // Return to the current process (or run something else).
     if (current->p_state == P_RUNNABLE) {

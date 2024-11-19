@@ -1,0 +1,1 @@
+PANIC: Kernel page fault for 0x100000 (write protection problem, rip=0x43866)!
