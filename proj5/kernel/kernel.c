@@ -259,19 +259,25 @@ void syscall_mem_tog(proc* process){
 //    then calls exception().
 //
 //    Note that hardware interrupts are disabled whenever the kernel is running.
-void unmap(x86_64_pagetable* child_table, proc* child){
-        for (uintptr_t va = PROC_START_ADDR; va < MEMSIZE_VIRTUAL; va += PAGESIZE) {
-            vamapping child_map = virtual_memory_lookup(child_table, va);
-            if (child_map.pn != -1) {
-                pageinfo[child_map.pn].refcount = 0;
-                pageinfo[child_map.pn].owner = PO_FREE;
+
+void exit(pid_t pid){
+        for (uintptr_t addr = 0; addr < MEMSIZE_VIRTUAL; addr += PAGESIZE){
+            vamapping vam = virtual_memory_lookup(kernel_pagetable, addr);
+            // free pages owned by pid
+            if (pageinfo[vam.pn].owner == pid){
+                pageinfo[vam.pn].owner = PO_FREE;
+                pageinfo[vam.pn].refcount = 0;
             }
+            // decrease ref to shared pages 
+        else if (pageinfo[vam.pn].refcount > 1 && pageinfo[vam.pn].owner > 0 
+                        && addr == PROC_START_ADDR) {
+	           pageinfo[vam.pn].refcount--;
+	       }  
         }
-        pageinfo[PAGENUMBER((uintptr_t) child_table)].refcount = 0;
-        pageinfo[PAGENUMBER((uintptr_t) child_table)].owner = PO_FREE;
-        child->p_state = P_FREE;
-        current->p_registers.reg_rax = -1;
+    processes[pid].p_state = P_FREE;
+        
 }
+
 void exception(x86_64_registers* reg) {
     // Copy the saved registers into the `current` process descriptor
     // and always use the kernel's page table.
@@ -361,12 +367,14 @@ case INT_SYS_PAGE_ALLOC: {
     current->p_registers.reg_rax = 0;
     break;
 }
+// was helped by ULA's on SYS_FORK
 case INT_SYS_FORK: {
     // find free
     pid_t child_pid = -1;
     for (pid_t i = 1; i < NPROC; ++i) {
         if (processes[i].p_state == P_FREE) {
             child_pid = i;
+            current->p_registers.reg_rax = -1;
             break;
         }
     }
@@ -385,7 +393,7 @@ case INT_SYS_FORK: {
     //allocate
     x86_64_pagetable* child_table = make_pages(child_pid);
     if (!child_table) {
-        current->p_registers.reg_rax = -1;
+        exit(child_pid);
         break;
     }
     child->p_pagetable = child_table;
@@ -395,8 +403,9 @@ case INT_SYS_FORK: {
     vamapping console_mapping = virtual_memory_lookup(parent->p_pagetable, CONSOLE_ADDR);
         if (console_mapping.pn != -1) {
             pageinfo[console_mapping.pn].refcount++;
-            if (virtual_memory_map(child_table, CONSOLE_ADDR, CONSOLE_ADDR, PAGESIZE, console_mapping.perm) < 0) {
-                failed = 1;
+            if (virtual_memory_map(child_table, CONSOLE_ADDR, CONSOLE_ADDR, PAGESIZE, PTE_P | PTE_W | PTE_U) < 0) {
+                            exit(child_pid);
+            break;
             }
     }
 
@@ -419,8 +428,8 @@ case INT_SYS_FORK: {
             int r = virtual_memory_map(child_table, va, new_pa, PAGESIZE, parent_mapping.perm);
             if (r < 0) {
                 failed = 1;
-                pageinfo[PAGENUMBER(new_pa)].refcount = 0; 
-                pageinfo[PAGENUMBER(new_pa)].owner = PO_FREE;
+                // pageinfo[PAGENUMBER(new_pa)].refcount = 0; 
+                // pageinfo[PAGENUMBER(new_pa)].owner = PO_FREE;
                 break;
             }
         } else if (((parent_mapping.perm & (PTE_P | PTE_U)) == (PTE_P | PTE_U))) {
@@ -434,11 +443,10 @@ case INT_SYS_FORK: {
         }
     }
 
-    if (failed != 0) {
-        unmap(child_table, child);
-
-        break;
-    }
+        if (failed != 0) {
+            exit(child_pid);
+            break;
+        }
 
     child->p_registers = parent->p_registers;
     child->p_registers.reg_rax = 0; 
@@ -483,6 +491,16 @@ case INT_SYS_FORK: {
         current->p_state = P_BROKEN;
         break;
     }
+
+case INT_SYS_EXIT: {
+    proc *p = current;
+    exit(p->p_pid);
+    // current->p_registers.reg_rax = -1; 
+
+    break;
+}
+
+
 
     default:
         default_exception(current);
