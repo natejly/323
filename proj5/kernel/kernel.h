@@ -197,6 +197,7 @@ int error_printf(int cpos, int color, const char* format, ...)
     __attribute__((noinline));
 int error_vprintf(int cpos, int color, const char* format, va_list val)
     __attribute__((noinline));
+uintptr_t find_page(int8_t owner);
 
 void default_exception(proc *p);
 #endif

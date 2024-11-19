@@ -153,6 +153,7 @@ uintptr_t find_page(int8_t owner) {
 }
 
 
+
 x86_64_pagetable* make_pages(pid_t pid){
     x86_64_pagetable *l4 = reserve_page(pid);
     x86_64_pagetable *l3 = reserve_page(pid);
@@ -168,7 +169,7 @@ x86_64_pagetable* make_pages(pid_t pid){
     for (uintptr_t va = 0; va < PROC_START_ADDR; va += PAGESIZE) {
         vamapping vam = virtual_memory_lookup(kernel_pagetable, va);
         if (vam.pn != -1) {
-            virtual_memory_map(l4, va, vam.pa, PAGESIZE, vam.perm & ~PTE_U);
+            virtual_memory_map(l4, va, vam.pa, PAGESIZE, PTE_P | PTE_W );
         }
     }
     return l4;
@@ -361,7 +362,7 @@ case INT_SYS_PAGE_ALLOC: {
     break;
 }
 case INT_SYS_FORK: {
-    // Step 1: Find a free process slot
+    // find free
     pid_t child_pid = -1;
     for (pid_t i = 1; i < NPROC; ++i) {
         if (processes[i].p_state == P_FREE) {
@@ -370,49 +371,66 @@ case INT_SYS_FORK: {
         }
     }
 
-    // If no free slot, return -1
+    // no ree
     if (child_pid == -1) {
         current->p_registers.reg_rax = -1;
         break;
     }
 
-    // Step 2: Reserve the new process slot
+    // reserve
     proc* parent = current;
     proc* child = &processes[child_pid];
     process_init(child, child_pid);
 
-    // Step 3: Allocate a new page table for the child
+    //allocate
     x86_64_pagetable* child_table = make_pages(child_pid);
     if (!child_table) {
         current->p_registers.reg_rax = -1;
         break;
     }
     child->p_pagetable = child_table;
-
     int failed = 0;
+    // map console
+
+    vamapping console_mapping = virtual_memory_lookup(parent->p_pagetable, CONSOLE_ADDR);
+        if (console_mapping.pn != -1) {
+            pageinfo[console_mapping.pn].refcount++;
+            if (virtual_memory_map(child_table, CONSOLE_ADDR, CONSOLE_ADDR, PAGESIZE, console_mapping.perm) < 0) {
+                failed = 1;
+            }
+    }
+
     for (uintptr_t va = PROC_START_ADDR; va < MEMSIZE_VIRTUAL; va += PAGESIZE) {
         vamapping parent_mapping = virtual_memory_lookup(parent->p_pagetable, va);
-
-        if (parent_mapping.pn == -1) {
+        // skip console and nonexistent pages
+        if (va == CONSOLE_ADDR || parent_mapping.pn == -1) {
             continue; 
         }
-        // mapp console
-        virtual_memory_map(child_table, CONSOLE_ADDR, parent_mapping.pa, PAGESIZE, parent_mapping.perm);
 
+        if (parent_mapping.perm & PTE_W) {
         // Allocate a new physical page for the child
-        uintptr_t new_pa = find_page(child_pid);
-        if (!new_pa) {
-            failed = 1;
-            break;
-        }
-        memcpy((void*) new_pa, (void*) parent_mapping.pa, PAGESIZE);
-        int r = virtual_memory_map(child_table, va, new_pa, PAGESIZE, parent_mapping.perm);
+            uintptr_t new_pa = find_page(child_pid);
+            if (!new_pa) {
+                failed = 1;
+                break;
+            }
+            memcpy((void*) new_pa, (void*) parent_mapping.pa, PAGESIZE);
 
-        if (r < 0) {
-            failed = 1;
-            pageinfo[PAGENUMBER(new_pa)].refcount = 0; 
-            pageinfo[PAGENUMBER(new_pa)].owner = PO_FREE;
-            break;
+            int r = virtual_memory_map(child_table, va, new_pa, PAGESIZE, parent_mapping.perm);
+            if (r < 0) {
+                failed = 1;
+                pageinfo[PAGENUMBER(new_pa)].refcount = 0; 
+                pageinfo[PAGENUMBER(new_pa)].owner = PO_FREE;
+                break;
+            }
+        } else if (((parent_mapping.perm & (PTE_P | PTE_U)) == (PTE_P | PTE_U))) {
+                
+            if (virtual_memory_map(child_table, va, parent_mapping.pa, PAGESIZE, parent_mapping.perm) < 0) {
+                failed = 1;
+                break;
+            }
+            pageinfo[parent_mapping.pn].refcount++;
+            continue;
         }
     }
 
