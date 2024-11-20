@@ -86,14 +86,18 @@ void kernel(const char* command) {
     pageinfo_init();
     console_clear();
     timer_init(HZ);
+    virtual_memory_map(kernel_pagetable, 0, 0,
+                   PROC_START_ADDR, PTE_P | PTE_W); 
 
+    virtual_memory_map(kernel_pagetable, CONSOLE_ADDR, CONSOLE_ADDR,
+                       PAGESIZE, PTE_P | PTE_W | PTE_U);
     // Set up process descriptors
     memset(processes, 0, sizeof(processes));
     for (pid_t i = 0; i < NPROC; i++) {
         processes[i].p_pid = i;
         processes[i].p_state = P_FREE;
     }
-
+            
     if (command && strcmp(command, "fork") == 0) {
         process_setup(1, 4);
     } else if (command && strcmp(command, "forkexit") == 0) {
@@ -109,11 +113,6 @@ void kernel(const char* command) {
             process_setup(i, i - 1);
         }
     }
-virtual_memory_map(kernel_pagetable, 0, 0,
-                   PROC_START_ADDR, PTE_P | PTE_W); 
-
-    virtual_memory_map(kernel_pagetable, CONSOLE_ADDR, CONSOLE_ADDR,
-                       PAGESIZE, PTE_P | PTE_W | PTE_U);
 
     // Switch to the first process using run()
     run(&processes[1]);
@@ -151,23 +150,38 @@ uintptr_t find_page(int8_t owner) {
 }
 
 x86_64_pagetable* make_pages(pid_t pid){
-    x86_64_pagetable *l4 = reserve_page(pid);
-    x86_64_pagetable *l3 = reserve_page(pid);
-    x86_64_pagetable *l2 = reserve_page(pid);
-    x86_64_pagetable *l1_1 = reserve_page(pid);
-    x86_64_pagetable *l1_0 = reserve_page(pid);
+    x86_64_pagetable *l4 = (x86_64_pagetable*) find_page(pid);
+    x86_64_pagetable *l3 = (x86_64_pagetable*) find_page(pid);
+    x86_64_pagetable *l2 = (x86_64_pagetable*) find_page(pid);
+    x86_64_pagetable *l1_1 = (x86_64_pagetable*) find_page(pid);
+    x86_64_pagetable *l1_0 = (x86_64_pagetable*) find_page(pid);
 
+    memset(l4, 0, PAGESIZE);
+    memset(l3, 0, PAGESIZE);
+    memset(l2, 0, PAGESIZE);
+    memset(l1_1, 0, PAGESIZE);
+    memset(l1_0, 0, PAGESIZE);
+
+    if (!l4) {
+        return NULL;
+    }
+    if (!l3 || !l2 || !l1_1 || !l1_0) {
+        if (l1_1) {
+            pageinfo[PAGENUMBER(l1_1)].refcount = 0;
+        }
+        if (l3) {
+            pageinfo[PAGENUMBER(l3)].refcount = 0;
+        }
+        if (l2) {
+            pageinfo[PAGENUMBER(l2)].refcount = 0;
+        }
+        pageinfo[PAGENUMBER(l4)].refcount = 0;
+        return NULL;
+    }
     l4->entry[0] = (x86_64_pageentry_t)l3 | PTE_P | PTE_W | PTE_U;
     l3->entry[0] = (x86_64_pageentry_t)l2 | PTE_P | PTE_W | PTE_U;
     l2->entry[0] = (x86_64_pageentry_t)l1_0 | PTE_P | PTE_W | PTE_U;
     l2->entry[1] = (x86_64_pageentry_t)l1_1 | PTE_P | PTE_W | PTE_U;
-
-    for (uintptr_t va = 0; va < PROC_START_ADDR; va += PAGESIZE) {
-        vamapping vam = virtual_memory_lookup(kernel_pagetable, va);
-        if (vam.pn != -1) {
-            virtual_memory_map(l4, va, vam.pa, PAGESIZE, PTE_P | PTE_W );
-        }
-    }
     return l4;
 }
 
@@ -175,6 +189,13 @@ void process_setup(pid_t pid, int program_number) {
     process_init(&processes[pid], 0);
 
     x86_64_pagetable *l4 = make_pages(pid);
+
+    for (uintptr_t va = 0; va < PROC_START_ADDR; va += PAGESIZE) {
+        vamapping vam = virtual_memory_lookup(kernel_pagetable, va);
+        if (vam.pn != -1) {
+            virtual_memory_map(l4, va, vam.pa, PAGESIZE, PTE_P | PTE_W );
+        }
+    }
 
     processes[pid].p_pagetable = l4;
     // FIXME
@@ -254,12 +275,11 @@ void syscall_mem_tog(proc* process){
 //    then calls exception().
 //
 //    Note that hardware interrupts are disabled whenever the kernel is running.
+
+// from office hours help 
 void exit1(proc* p){
         for (uintptr_t addr = PROC_START_ADDR; addr < MEMSIZE_VIRTUAL; addr += PAGESIZE){
             vamapping vam = virtual_memory_lookup(p->p_pagetable, addr);
-            // if (vam.pa == (uintptr_t) -1 ){
-            //     continue;
-            // }
             if (vam.pn < 0){
                 continue;
             }
@@ -287,6 +307,7 @@ void exit1(proc* p){
             p->p_state = P_FREE;
 
 }
+// a lot of help from OH on fork1 and exit1
 int fork1(void){
     // find free
     pid_t child_pid = -1;
@@ -309,25 +330,21 @@ int fork1(void){
     proc* child = &processes[child_pid];
     process_init(child, 0);
 
-    //allocate
     x86_64_pagetable* child_table = make_pages(child_pid);
-    if (!child_table) {
-        exit1(child);
-        current->p_registers.reg_rax = -1;
+    if (child_table == NULL){
         return -1;
     }
-    child->p_pagetable = child_table;
-    // map console
-
-    vamapping console_mapping = virtual_memory_lookup(parent->p_pagetable, CONSOLE_ADDR);
-        if (console_mapping.pn != -1) {
-            pageinfo[console_mapping.pn].refcount++;
-            if (virtual_memory_map(child_table, CONSOLE_ADDR, CONSOLE_ADDR, PAGESIZE, PTE_P | PTE_W | PTE_U) < 0) {
-            exit1(child);
-            child_pid = -1;
-            return -1;
+    for (uintptr_t addr = 0; addr < PROC_START_ADDR; addr += PAGESIZE) {
+        vamapping vm = virtual_memory_lookup(kernel_pagetable, addr);
+        if (vm.pn >= 0) {
+            if (virtual_memory_map(child_table, addr, addr, PAGESIZE, vm.perm) < 0) {
+                return -1;
             }
+        }
     }
+
+    child->p_pagetable = child_table;
+
     for (uintptr_t va = PROC_START_ADDR; va < MEMSIZE_VIRTUAL; va += PAGESIZE) {
         vamapping parent_mapping = virtual_memory_lookup(parent->p_pagetable, va);
         // skip console and nonexistent pages
@@ -343,8 +360,7 @@ int fork1(void){
             return -1;
             }
             memcpy((void*) new_pa, (void*) parent_mapping.pa, PAGESIZE);
-            int r = virtual_memory_map(child_table, va, new_pa, PAGESIZE, parent_mapping.perm);
-            if (r < 0) {
+            if (virtual_memory_map(child_table, va, new_pa, PAGESIZE, parent_mapping.perm) < 0) {
                 exit1(child);
                 child_pid = -1;
                 return -1;
@@ -358,7 +374,6 @@ int fork1(void){
                 return -1;
             }
             pageinfo[parent_mapping.pn].refcount++;
-            // continue;
         }
     }
     child->p_registers = parent->p_registers;
@@ -366,9 +381,6 @@ int fork1(void){
     child->p_state = P_RUNNABLE;
     current->p_registers.reg_rax = child_pid;
     return 0;
-
-
-
 }
 void exception(x86_64_registers* reg) {
     // Copy the saved registers into the `current` process descriptor
