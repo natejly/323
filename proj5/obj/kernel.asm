@@ -564,7 +564,7 @@ void kernel(const char* command) {
 //    %rip and %rsp, gives it a stack page, and marks it as runnable.
 
 // helper function for reserving pages which returns return its page address
-
+x86_64_pagetable* reserve_page(int8_t owner);
 x86_64_pagetable* reserve_page(int8_t owner) {
    40366:	f3 0f 1e fa          	endbr64 
    4036a:	55                   	push   %rbp
@@ -625,6 +625,7 @@ x86_64_pagetable* reserve_page(int8_t owner) {
    40403:	c3                   	ret    
 
 0000000000040404 <find_page>:
+uintptr_t find_page(int8_t owner);
 uintptr_t find_page(int8_t owner) {
    40404:	f3 0f 1e fa          	endbr64 
    40408:	55                   	push   %rbp
@@ -672,7 +673,7 @@ uintptr_t find_page(int8_t owner) {
    40472:	c3                   	ret    
 
 0000000000040473 <make_pages>:
-
+x86_64_pagetable* make_pages(pid_t pid);
 x86_64_pagetable* make_pages(pid_t pid){
    40473:	f3 0f 1e fa          	endbr64 
    40477:	55                   	push   %rbp
@@ -935,7 +936,7 @@ void process_setup(pid_t pid, int program_number) {
    40770:	79 1e                	jns    40790 <process_setup+0x14b>
    40772:	48 8d 05 00 45 00 00 	lea    0x4500(%rip),%rax        # 44c79 <console_clear+0x75>
    40779:	48 89 c2             	mov    %rax,%rdx
-   4077c:	be d0 00 00 00       	mov    $0xd0,%esi
+   4077c:	be d1 00 00 00       	mov    $0xd1,%esi
    40781:	48 8d 05 f8 44 00 00 	lea    0x44f8(%rip),%rax        # 44c80 <console_clear+0x7c>
    40788:	48 89 c7             	mov    %rax,%rdi
    4078b:	e8 69 27 00 00       	call   42ef9 <assert_fail>
@@ -1171,11 +1172,11 @@ void syscall_mem_tog(proc* process){
    409d0:	c3                   	ret    
 
 00000000000409d1 <exit1>:
-//    then calls exception().
 //
 //    Note that hardware interrupts are disabled whenever the kernel is running.
 
 // from office hours help 
+void exit1(proc* p);
 void exit1(proc* p){
    409d1:	f3 0f 1e fa          	endbr64 
    409d5:	55                   	push   %rbp
@@ -1310,6 +1311,7 @@ void exit1(proc* p){
 
 0000000000040b42 <fork1>:
 // a lot of help from OH on fork1 and exit1
+int fork1(void);
 int fork1(void){
    40b42:	f3 0f 1e fa          	endbr64 
    40b46:	55                   	push   %rbp
@@ -1974,7 +1976,6 @@ case INT_SYS_EXIT: {
    41280:	48 89 c7             	mov    %rax,%rdi
    41283:	e8 49 f7 ff ff       	call   409d1 <exit1>
     // current->p_registers.reg_rax = -1; 
-
     break;
    41288:	eb 10                	jmp    4129a <exception+0x440>
 }
@@ -2084,7 +2085,7 @@ void run(proc* p) {
    4135f:	74 1e                	je     4137f <run+0x3d>
    41361:	48 8d 05 64 3a 00 00 	lea    0x3a64(%rip),%rax        # 44dcc <console_clear+0x1c8>
    41368:	48 89 c2             	mov    %rax,%rdx
-   4136b:	be 37 02 00 00       	mov    $0x237,%esi
+   4136b:	be 39 02 00 00       	mov    $0x239,%esi
    41370:	48 8d 05 09 39 00 00 	lea    0x3909(%rip),%rax        # 44c80 <console_clear+0x7c>
    41377:	48 89 c7             	mov    %rax,%rdi
    4137a:	e8 7a 1b 00 00       	call   42ef9 <assert_fail>
@@ -2207,7 +2208,7 @@ void check_page_table_mappings(x86_64_pagetable* pt) {
    4148f:	74 1e                	je     414af <check_page_table_mappings+0x44>
    41491:	48 8d 05 50 39 00 00 	lea    0x3950(%rip),%rax        # 44de8 <console_clear+0x1e4>
    41498:	48 89 c2             	mov    %rax,%rdx
-   4149b:	be 61 02 00 00       	mov    $0x261,%esi
+   4149b:	be 63 02 00 00       	mov    $0x263,%esi
    414a0:	48 8d 05 d9 37 00 00 	lea    0x37d9(%rip),%rax        # 44c80 <console_clear+0x7c>
    414a7:	48 89 c7             	mov    %rax,%rdi
    414aa:	e8 4a 1a 00 00       	call   42ef9 <assert_fail>
@@ -2247,7 +2248,7 @@ void check_page_table_mappings(x86_64_pagetable* pt) {
    41511:	74 1e                	je     41531 <check_page_table_mappings+0xc6>
    41513:	48 8d 05 f7 38 00 00 	lea    0x38f7(%rip),%rax        # 44e11 <console_clear+0x20d>
    4151a:	48 89 c2             	mov    %rax,%rdx
-   4151d:	be 6a 02 00 00       	mov    $0x26a,%esi
+   4151d:	be 6c 02 00 00       	mov    $0x26c,%esi
    41522:	48 8d 05 57 37 00 00 	lea    0x3757(%rip),%rax        # 44c80 <console_clear+0x7c>
    41529:	48 89 c7             	mov    %rax,%rdi
    4152c:	e8 c8 19 00 00       	call   42ef9 <assert_fail>
@@ -2263,7 +2264,7 @@ void check_page_table_mappings(x86_64_pagetable* pt) {
    41549:	75 1e                	jne    41569 <check_page_table_mappings+0xfe>
    4154b:	48 8d 05 cc 38 00 00 	lea    0x38cc(%rip),%rax        # 44e1e <console_clear+0x21a>
    41552:	48 89 c2             	mov    %rax,%rdx
-   41555:	be 6c 02 00 00       	mov    $0x26c,%esi
+   41555:	be 6e 02 00 00       	mov    $0x26e,%esi
    4155a:	48 8d 05 1f 37 00 00 	lea    0x371f(%rip),%rax        # 44c80 <console_clear+0x7c>
    41561:	48 89 c7             	mov    %rax,%rdi
    41564:	e8 90 19 00 00       	call   42ef9 <assert_fail>
@@ -2294,7 +2295,7 @@ void check_page_table_mappings(x86_64_pagetable* pt) {
    415a9:	74 1e                	je     415c9 <check_page_table_mappings+0x15e>
    415ab:	48 8d 05 7d 38 00 00 	lea    0x387d(%rip),%rax        # 44e2f <console_clear+0x22b>
    415b2:	48 89 c2             	mov    %rax,%rdx
-   415b5:	be 73 02 00 00       	mov    $0x273,%esi
+   415b5:	be 75 02 00 00       	mov    $0x275,%esi
    415ba:	48 8d 05 bf 36 00 00 	lea    0x36bf(%rip),%rax        # 44c80 <console_clear+0x7c>
    415c1:	48 89 c7             	mov    %rax,%rdi
    415c4:	e8 30 19 00 00       	call   42ef9 <assert_fail>
@@ -2306,7 +2307,7 @@ void check_page_table_mappings(x86_64_pagetable* pt) {
    415d4:	75 1e                	jne    415f4 <check_page_table_mappings+0x189>
    415d6:	48 8d 05 41 38 00 00 	lea    0x3841(%rip),%rax        # 44e1e <console_clear+0x21a>
    415dd:	48 89 c2             	mov    %rax,%rdx
-   415e0:	be 74 02 00 00       	mov    $0x274,%esi
+   415e0:	be 76 02 00 00       	mov    $0x276,%esi
    415e5:	48 8d 05 94 36 00 00 	lea    0x3694(%rip),%rax        # 44c80 <console_clear+0x7c>
    415ec:	48 89 c7             	mov    %rax,%rdi
    415ef:	e8 05 19 00 00       	call   42ef9 <assert_fail>
@@ -2408,7 +2409,7 @@ static void check_page_table_ownership_level(x86_64_pagetable* pt, int level,
    416d5:	7e 1e                	jle    416f5 <check_page_table_ownership_level+0x46>
    416d7:	48 8d 05 62 37 00 00 	lea    0x3762(%rip),%rax        # 44e40 <console_clear+0x23c>
    416de:	48 89 c2             	mov    %rax,%rdx
-   416e1:	be 91 02 00 00       	mov    $0x291,%esi
+   416e1:	be 93 02 00 00       	mov    $0x293,%esi
    416e6:	48 8d 05 93 35 00 00 	lea    0x3593(%rip),%rax        # 44c80 <console_clear+0x7c>
    416ed:	48 89 c7             	mov    %rax,%rdi
    416f0:	e8 04 18 00 00       	call   42ef9 <assert_fail>
@@ -2424,7 +2425,7 @@ static void check_page_table_ownership_level(x86_64_pagetable* pt, int level,
    41714:	74 1e                	je     41734 <check_page_table_ownership_level+0x85>
    41716:	48 8d 05 3b 37 00 00 	lea    0x373b(%rip),%rax        # 44e58 <console_clear+0x254>
    4171d:	48 89 c2             	mov    %rax,%rdx
-   41720:	be 92 02 00 00       	mov    $0x292,%esi
+   41720:	be 94 02 00 00       	mov    $0x294,%esi
    41725:	48 8d 05 54 35 00 00 	lea    0x3554(%rip),%rax        # 44c80 <console_clear+0x7c>
    4172c:	48 89 c7             	mov    %rax,%rdi
    4172f:	e8 c5 17 00 00       	call   42ef9 <assert_fail>
@@ -2440,7 +2441,7 @@ static void check_page_table_ownership_level(x86_64_pagetable* pt, int level,
    41753:	74 1e                	je     41773 <check_page_table_ownership_level+0xc4>
    41755:	48 8d 05 24 37 00 00 	lea    0x3724(%rip),%rax        # 44e80 <console_clear+0x27c>
    4175c:	48 89 c2             	mov    %rax,%rdx
-   4175f:	be 93 02 00 00       	mov    $0x293,%esi
+   4175f:	be 95 02 00 00       	mov    $0x295,%esi
    41764:	48 8d 05 15 35 00 00 	lea    0x3515(%rip),%rax        # 44c80 <console_clear+0x7c>
    4176b:	48 89 c7             	mov    %rax,%rdi
    4176e:	e8 86 17 00 00       	call   42ef9 <assert_fail>
@@ -2504,7 +2505,7 @@ void check_virtual_memory(void) {
    417eb:	74 1e                	je     4180b <check_virtual_memory+0x34>
    417ed:	48 8d 05 bc 36 00 00 	lea    0x36bc(%rip),%rax        # 44eb0 <console_clear+0x2ac>
    417f4:	48 89 c2             	mov    %rax,%rdx
-   417f7:	be a6 02 00 00       	mov    $0x2a6,%esi
+   417f7:	be a8 02 00 00       	mov    $0x2a8,%esi
    417fc:	48 8d 05 7d 34 00 00 	lea    0x347d(%rip),%rax        # 44c80 <console_clear+0x7c>
    41803:	48 89 c7             	mov    %rax,%rdi
    41806:	e8 ee 16 00 00       	call   42ef9 <assert_fail>
@@ -2622,7 +2623,7 @@ void check_virtual_memory(void) {
    4196b:	75 1e                	jne    4198b <check_virtual_memory+0x1b4>
    4196d:	48 8d 05 5c 35 00 00 	lea    0x355c(%rip),%rax        # 44ed0 <console_clear+0x2cc>
    41974:	48 89 c2             	mov    %rax,%rdx
-   41977:	be bd 02 00 00       	mov    $0x2bd,%esi
+   41977:	be bf 02 00 00       	mov    $0x2bf,%esi
    4197c:	48 8d 05 fd 32 00 00 	lea    0x32fd(%rip),%rax        # 44c80 <console_clear+0x7c>
    41983:	48 89 c7             	mov    %rax,%rdi
    41986:	e8 6e 15 00 00       	call   42ef9 <assert_fail>
@@ -2795,7 +2796,7 @@ void memshow_virtual(x86_64_pagetable* pagetable, const char* name) {
    41b2a:	74 1e                	je     41b4a <memshow_virtual+0x48>
    41b2c:	48 8d 05 0d 34 00 00 	lea    0x340d(%rip),%rax        # 44f40 <memstate_colors+0x40>
    41b33:	48 89 c2             	mov    %rax,%rdx
-   41b36:	be ee 02 00 00       	mov    $0x2ee,%esi
+   41b36:	be f0 02 00 00       	mov    $0x2f0,%esi
    41b3b:	48 8d 05 3e 31 00 00 	lea    0x313e(%rip),%rax        # 44c80 <console_clear+0x7c>
    41b42:	48 89 c7             	mov    %rax,%rdi
    41b45:	e8 af 13 00 00       	call   42ef9 <assert_fail>
@@ -2835,7 +2836,7 @@ void memshow_virtual(x86_64_pagetable* pagetable, const char* name) {
    41baf:	76 1e                	jbe    41bcf <memshow_virtual+0xcd>
    41bb1:	48 8d 05 d2 33 00 00 	lea    0x33d2(%rip),%rax        # 44f8a <memstate_colors+0x8a>
    41bb8:	48 89 c2             	mov    %rax,%rdx
-   41bbb:	be f7 02 00 00       	mov    $0x2f7,%esi
+   41bbb:	be f9 02 00 00       	mov    $0x2f9,%esi
    41bc0:	48 8d 05 b9 30 00 00 	lea    0x30b9(%rip),%rax        # 44c80 <console_clear+0x7c>
    41bc7:	48 89 c7             	mov    %rax,%rdi
    41bca:	e8 2a 13 00 00       	call   42ef9 <assert_fail>

@@ -125,7 +125,7 @@ void kernel(const char* command) {
 //    %rip and %rsp, gives it a stack page, and marks it as runnable.
 
 // helper function for reserving pages which returns return its page address
-
+x86_64_pagetable* reserve_page(int8_t owner);
 x86_64_pagetable* reserve_page(int8_t owner) {
     for (uintptr_t addr = 0; addr < MEMSIZE_PHYSICAL; addr += PAGESIZE) {
         int pn = PAGENUMBER(addr);
@@ -138,6 +138,7 @@ x86_64_pagetable* reserve_page(int8_t owner) {
     }
     return NULL;
 }
+uintptr_t find_page(int8_t owner);
 uintptr_t find_page(int8_t owner) {
     for (uintptr_t addr = 0; addr < MEMSIZE_PHYSICAL; addr += PAGESIZE) {
         int pn = PAGENUMBER(addr);
@@ -148,7 +149,7 @@ uintptr_t find_page(int8_t owner) {
     }
     return 0; 
 }
-
+x86_64_pagetable* make_pages(pid_t pid);
 x86_64_pagetable* make_pages(pid_t pid){
     x86_64_pagetable *l4 = (x86_64_pagetable*) find_page(pid);
     x86_64_pagetable *l3 = (x86_64_pagetable*) find_page(pid);
@@ -277,6 +278,7 @@ void syscall_mem_tog(proc* process){
 //    Note that hardware interrupts are disabled whenever the kernel is running.
 
 // from office hours help 
+void exit1(proc* p);
 void exit1(proc* p){
         for (uintptr_t addr = PROC_START_ADDR; addr < MEMSIZE_VIRTUAL; addr += PAGESIZE){
             vamapping vam = virtual_memory_lookup(p->p_pagetable, addr);
@@ -308,6 +310,7 @@ void exit1(proc* p){
 
 }
 // a lot of help from OH on fork1 and exit1
+int fork1(void);
 int fork1(void){
     // find free
     pid_t child_pid = -1;
@@ -519,7 +522,6 @@ case INT_SYS_EXIT: {
     proc *p = current;
     exit1(p);
     // current->p_registers.reg_rax = -1; 
-
     break;
 }
 
