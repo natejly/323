@@ -109,6 +109,9 @@ static int program_load_segment(proc* p, const elf_program* ph,
                     PTE_P | PTE_U);
         }
     }
-    // TODO : Add code here
+    // get break to end of proc mem rounded to pagesize
+    p->original_break = ROUNDUP(end_mem, PAGESIZE); 
+    p->program_break = p->original_break;
+
     return 0;
 }

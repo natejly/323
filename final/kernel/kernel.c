@@ -157,11 +157,52 @@ int syscall_page_alloc(uintptr_t addr) {
     return process_page_alloc(current, addr);
 }
 
+int syscall_brk(proc* p, uintptr_t new_brk) {
+    // Validate that new_brk is within the allowable range
+    if (new_brk < p->original_break || new_brk >= MEMSIZE_VIRTUAL - PAGESIZE) {
+        return -1;  // Error: break below heap start or beyond stack
+    }
 
-int sbrk(proc * p, intptr_t difference) {
-    // TODO : Your code here
+    uintptr_t old_brk = p->program_break;
+
+    // Grow the heap lazily
+    if (new_brk > old_brk) {
+        // for (uintptr_t addr = ROUNDUP(old_brk, PAGESIZE); addr < ROUNDUP(new_brk, PAGESIZE); addr += PAGESIZE) {
+        //     uintptr_t pa = (uintptr_t) palloc(p->p_pid);
+        //     if (!pa || virtual_memory_map(p->p_pagetable, addr, pa, PAGESIZE, PTE_P | PTE_W | PTE_U) < 0) {
+        //         return -1; // Allocation failure
+        //     }
+        // }
+    }
+
+    // Shrink the heap and unmap pages
+    else if (new_brk < old_brk) {
+        for (uintptr_t addr = ROUNDUP(new_brk, PAGESIZE); addr < ROUNDUP(old_brk, PAGESIZE); addr += PAGESIZE) {
+            vamapping map = virtual_memory_lookup(p->p_pagetable, addr);
+            if (map.pn >= 0) {
+                virtual_memory_map(p->p_pagetable, addr, 0, PAGESIZE, 0);
+                pageinfo[map.pn].refcount = 0;
+                pageinfo[map.pn].owner = PO_FREE;
+            }
+        }
+    }
+
+    p->program_break = new_brk; // Update program break
     return 0;
 }
+
+
+intptr_t syscall_sbrk(proc* p, intptr_t difference) {
+    uintptr_t old_brk = p->program_break;
+    uintptr_t new_brk = old_brk + difference;
+
+    if (syscall_brk(p, new_brk) != 0) {
+        return -1;  // Failed to adjust break
+    }
+
+    return old_brk; // Return previous program break
+}
+
 
 
 void syscall_mapping(proc* p){
@@ -285,17 +326,14 @@ void exception(x86_64_registers* reg) {
                 break;                  /* will not be reached */
             }
 
-        case INT_SYS_BRK:
-            {
-                // TODO : Your code here
-		break;
-            }
+    case INT_SYS_BRK:
+        current->p_registers.reg_rax = syscall_brk(current, current->p_registers.reg_rdi);
+        break;
 
-        case INT_SYS_SBRK:
-            {
-                // TODO : Your code here
-                break;
-            }
+    case INT_SYS_SBRK:
+        current->p_registers.reg_rax = syscall_sbrk(current, current->p_registers.reg_rdi);
+        break;
+
 	case INT_SYS_PAGE_ALLOC:
 	    {
 		intptr_t addr = reg->reg_rdi;
@@ -315,26 +353,44 @@ void exception(x86_64_registers* reg) {
                 break;                  /* will not be reached */
             }
 
-        case INT_PAGEFAULT: 
-            {
-                // Analyze faulting address and access type.
-                uintptr_t addr = rcr2();
-                const char* operation = reg->reg_err & PFERR_WRITE
-                    ? "write" : "read";
-                const char* problem = reg->reg_err & PFERR_PRESENT
-                    ? "protection problem" : "missing page";
+case INT_PAGEFAULT: 
+{
+    uintptr_t addr = rcr2();  // Address that caused the fault
+    const char* operation = reg->reg_err & PFERR_WRITE ? "write" : "read";
+    const char* problem = reg->reg_err & PFERR_PRESENT ? "protection problem" : "missing page";
 
-                if (!(reg->reg_err & PFERR_USER)) {
-                    kernel_panic("Kernel page fault for %p (%s %s, rip=%p)!\n",
-                            addr, operation, problem, reg->reg_rip);
-                }
-                console_printf(CPOS(24, 0), 0x0C00,
-                        "Process %d page fault for %p (%s %s, rip=%p)!\n",
-                        current->p_pid, addr, operation, problem, reg->reg_rip);
-                current->p_state = P_BROKEN;
-                syscall_exit();
-                break;
-            }
+    // Check if the fault occurred in user space
+    if (!(reg->reg_err & PFERR_USER)) {
+        kernel_panic("Kernel page fault for %p (%s %s, rip=%p)!\n",
+                     addr, operation, problem, reg->reg_rip);
+    }
+
+    // Check if the faulting address is within the process's heap
+    if (addr >= current->original_break && addr < current->program_break) {
+        uintptr_t faulting_page = addr & ~(PAGESIZE - 1); // Align to page boundary
+        uintptr_t pa = (uintptr_t) palloc(current->p_pid);
+
+        // If physical page allocation fails, kill the process
+        if (!pa || virtual_memory_map(current->p_pagetable, faulting_page, pa, PAGESIZE, PTE_P | PTE_W | PTE_U) < 0) {
+            current->p_state = P_BROKEN;
+            syscall_exit();
+        }
+
+        // Set the process state back to runnable and resume execution
+        current->p_state = P_RUNNABLE;
+        break;
+    }
+
+    // If the fault is outside the heap, treat it as an error
+    console_printf(CPOS(24, 0), 0x0C00,
+                   "Process %d page fault for %p (%s %s, rip=%p)!\n",
+                   current->p_pid, addr, operation, problem, reg->reg_rip);
+    current->p_state = P_BROKEN;
+    syscall_exit();
+    break;
+}
+
+
 
         default:
             default_exception(current);

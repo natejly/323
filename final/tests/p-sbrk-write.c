@@ -37,6 +37,5 @@ void process_main(void) {
         mapping(va, &map);
 	assert(!(map.perm & PTE_P));
     }
-
     TEST_PASS();
 }

@@ -1,0 +1,2 @@
+PANIC: PANIC: uspace/p-allocator.c: TEST PASS
+PANIC: kernel/kernel.c:529: assertion 'pageinfo[PAGENUMBER(pt)].owner == owner' failed
