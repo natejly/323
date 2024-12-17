@@ -165,7 +165,6 @@ int syscall_brk(proc* p, uintptr_t new_brk) {
 
     uintptr_t old_brk = p->program_break;
 
-    // Grow the heap lazily
     if (new_brk > old_brk) {
         // for (uintptr_t addr = ROUNDUP(old_brk, PAGESIZE); addr < ROUNDUP(new_brk, PAGESIZE); addr += PAGESIZE) {
         //     uintptr_t pa = (uintptr_t) palloc(p->p_pid);
