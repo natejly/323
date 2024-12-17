@@ -2,11 +2,15 @@
 #include "malloc.h"
 
 
+#define ALLOC_SLOWDOWN 100
+#define MAX_ALLOC 100
 extern uint8_t end[];
 
 uint8_t *heap_top;
 uint8_t *heap_bottom;
 uint8_t *stack_bottom;
+
+
 
 void process_main(void) {
     pid_t p = getpid();
@@ -14,37 +18,53 @@ void process_main(void) {
     heap_bottom = heap_top = ROUNDUP((uint8_t*) end, PAGESIZE);
     stack_bottom = ROUNDDOWN((uint8_t*) read_rsp() - 1, PAGESIZE);
 
+    void *ptr;
 
-    heap_info_struct h1, h2, h3;
+    /* Single elements on heap of varying sizes */
+    for(int i = 0; i < 512; ++i) {
+        ptr = malloc(i);
+        assert(ptr != NULL || i == 0);
+        assert((uintptr_t)ptr % 8 == 0);
+        free(ptr);
+    }
 
-    void* ptr = malloc(16384);
-    void * ptr2 = malloc(10);
-    void * ptr3 = malloc(10);
+    /* Many things allocated at the same time */
+    static char *ptrs[512];
 
-    heap_info(&h1);
+    for(size_t i = 0; i < sizeof(ptrs)/sizeof(ptrs[0]); ++i) {
+        ptrs[i] = (char *) malloc(i+1);
+        assert(ptrs[i] != NULL);
+        assert((uintptr_t)ptrs[i] % 8 == 0);
+    }
+
+    for(size_t i = 0; i < sizeof(ptrs)/sizeof(ptrs[0]); ++i) {
+        free((void *)ptrs[i]);
+    }
+
+    /* Single elements on heap of varying sizes,
+     * in reverse size order, leading to small splitting of free blocks. */
+    for(size_t i = 4096; i > 0; --i) {
+        ptr = malloc(i);
+        assert(ptr != NULL);
+        assert((uintptr_t)ptr % 8 == 0);
+
+        /* Check that we can write */
+        free(ptr);
+    }
+
+    ptr = malloc(25);
+    assert(ptr != NULL);
+    assert((uintptr_t)ptr % 8 == 0);
+
+    ptr = realloc(ptr, 25000);
+    assert(ptr != NULL);
+    assert((uintptr_t)ptr % 8 == 0);
 
     free(ptr);
-    free(ptr2);
-    free(ptr3);
 
-    free(h1.size_array);
-    free(h1.ptr_array);
-    
-    heap_info(&h2);
+    ptr = calloc(10,10);
+    assert(ptr != NULL);
+    assert((uintptr_t)ptr % 8 == 0);
 
-    free(h2.size_array);
-    free(h2.ptr_array);
-
-    defrag();
-    heap_info(&h3);
-
-    assert(h3.largest_free_chunk > h2.largest_free_chunk);
-
-    app_printf(0, "DEFRAG PASS\n");
     TEST_PASS();
-
-    // After running out of memory, do nothing forever
-    while (1) {
-        yield();
-    }
 }

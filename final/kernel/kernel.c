@@ -374,6 +374,7 @@ case INT_PAGEFAULT:
         if (!pa || virtual_memory_map(current->p_pagetable, faulting_page, pa, PAGESIZE, PTE_P | PTE_W | PTE_U) < 0) {
             current->p_state = P_BROKEN;
             syscall_exit();
+            break;
         }
 
         // Set the process state back to runnable and resume execution
@@ -390,11 +391,9 @@ case INT_PAGEFAULT:
     break;
 }
 
-
-
-        default:
-            default_exception(current);
-            break;                  /* will not be reached */
+    default:
+        default_exception(current);
+        break;                  /* will not be reached */
 
     }
 

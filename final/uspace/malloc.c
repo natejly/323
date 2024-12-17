@@ -5,6 +5,7 @@ typedef struct block {
     struct block *next;
     int free;
 } block;
+#define BLOCKSIZE algn(sizeof(block))
 
 static block *head = NULL;
 
@@ -19,7 +20,7 @@ size_t algn(size_t size){
 }
 block* new_block(size_t size){
     // get program break
-    void *bptr = sbrk(size + sizeof(block));
+    void *bptr = sbrk(size + BLOCKSIZE);
     if (bptr == (void*) -1) {
         // alloc failure
     return NULL;
@@ -54,13 +55,13 @@ block* find_block(size_t size) {
 }
 
 block* split_block(block* b, size_t size){
-    if(b->size < size + sizeof(block)){
+    if(b->size < size + BLOCKSIZE){
         return NULL;
     }
-    void* nptr = (void*)b + sizeof(block) + size;
+    void* nptr = (void*)b + BLOCKSIZE + size;
     block *new = (block*)nptr;
 
-    new->size = b->size - size - sizeof(block);
+    new->size = b->size - size - BLOCKSIZE;
     new->next = b->next;
     new->free = 1; // New block is free
 
@@ -77,8 +78,12 @@ void free(void *firstbyte) {
     if (!firstbyte) {
     return;
   }
-    block* ptr = (block*)firstbyte;
-    ptr->free = 1;
+      block *b = (block *)((char *)firstbyte - BLOCKSIZE);
+
+    // Mark the block as free
+    b->free = 1;
+  
+
 }
 
 void *malloc(uint64_t numbytes) {
@@ -94,11 +99,11 @@ void *malloc(uint64_t numbytes) {
     } else {
         b->free = 0;
         // check split
-        if (b->size > size + sizeof(block)) {
+        if (b->size > size + BLOCKSIZE) {
             split_block(b, size);
         }
     }
-    return (void*)((void*)b + sizeof(block));
+    return (void*)((void*)b + BLOCKSIZE);
 
 }
 
@@ -122,13 +127,13 @@ void *realloc(void *ptr, uint64_t sz) {
         return NULL;
     }
 
-    block *b = (block*)((void*)ptr - sizeof(block)); // Get the block metadata
+    block *b = (block*)((void*)ptr - BLOCKSIZE); // Get the block metadata
     size_t aligned_size = algn(sz);
 
     // If the current block is already large enough
     if (b->size >= aligned_size) {
         // Split the block if it has excess space
-        if (b->size > aligned_size + sizeof(block)) {
+        if (b->size > aligned_size + BLOCKSIZE) {
             split_block(b, aligned_size);
         }
         return ptr; // Return the same pointer if resizing in place
@@ -156,7 +161,7 @@ void defrag() {
     while (b && b->next) {
         if (b->free && b->next->free) {
             // Merge the current block with the next block
-            b->size += sizeof(block) + b->next->size;
+            b->size += BLOCKSIZE + b->next->size;
             b->next = b->next->next;  // Skip the next block after merging
 
         } else {

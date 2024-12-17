@@ -100,7 +100,7 @@ block* new_block(size_t size){
   100084:	f3 0f 1e fa          	endbr64 
   100088:	48 89 fa             	mov    %rdi,%rdx
     // get program break
-    void *bptr = sbrk(size + sizeof(block));
+    void *bptr = sbrk(size + BLOCKSIZE);
   10008b:	48 8d 7f 18          	lea    0x18(%rdi),%rdi
 //     On success, sbrk() returns the previous program break
 //     (If the break was increased, then this value is a pointer to the start of the newly allocated memory)
@@ -189,18 +189,18 @@ block* find_block(size_t size) {
 
 block* split_block(block* b, size_t size){
   10010a:	f3 0f 1e fa          	endbr64 
-    if(b->size < size + sizeof(block)){
+    if(b->size < size + BLOCKSIZE){
   10010e:	48 8b 17             	mov    (%rdi),%rdx
   100111:	48 8d 46 18          	lea    0x18(%rsi),%rax
   100115:	48 39 c2             	cmp    %rax,%rdx
   100118:	72 24                	jb     10013e <split_block+0x34>
         return NULL;
     }
-    void* nptr = (void*)b + sizeof(block) + size;
+    void* nptr = (void*)b + BLOCKSIZE + size;
   10011a:	48 01 f8             	add    %rdi,%rax
     block *new = (block*)nptr;
 
-    new->size = b->size - size - sizeof(block);
+    new->size = b->size - size - BLOCKSIZE;
   10011d:	48 29 f2             	sub    %rsi,%rdx
   100120:	48 8d 52 e8          	lea    -0x18(%rdx),%rdx
   100124:	48 89 10             	mov    %rdx,(%rax)
@@ -234,9 +234,13 @@ void free(void *firstbyte) {
   10014b:	74 07                	je     100154 <free+0x10>
     return;
   }
-    block* ptr = (block*)firstbyte;
-    ptr->free = 1;
-  10014d:	c7 47 10 01 00 00 00 	movl   $0x1,0x10(%rdi)
+      block *b = (block *)((char *)firstbyte - BLOCKSIZE);
+
+    // Mark the block as free
+    b->free = 1;
+  10014d:	c7 47 f8 01 00 00 00 	movl   $0x1,-0x8(%rdi)
+  
+
 }
   100154:	c3                   	ret    
 
@@ -267,14 +271,14 @@ void *malloc(uint64_t numbytes) {
         b->free = 0;
   100178:	c7 40 10 00 00 00 00 	movl   $0x0,0x10(%rax)
         // check split
-        if (b->size > size + sizeof(block)) {
+        if (b->size > size + BLOCKSIZE) {
   10017f:	49 8d 44 24 18       	lea    0x18(%r12),%rax
   100184:	48 39 03             	cmp    %rax,(%rbx)
   100187:	77 1e                	ja     1001a7 <malloc+0x52>
             split_block(b, size);
         }
     }
-    return (void*)((void*)b + sizeof(block));
+    return (void*)((void*)b + BLOCKSIZE);
   100189:	48 83 c3 18          	add    $0x18,%rbx
 
 }
@@ -352,7 +356,7 @@ void *realloc(void *ptr, uint64_t sz) {
   100206:	48 8d 76 07          	lea    0x7(%rsi),%rsi
   10020a:	48 83 e6 f8          	and    $0xfffffffffffffff8,%rsi
 
-    block *b = (block*)((void*)ptr - sizeof(block)); // Get the block metadata
+    block *b = (block*)((void*)ptr - BLOCKSIZE); // Get the block metadata
     size_t aligned_size = algn(sz);
 
     // If the current block is already large enough
@@ -361,16 +365,16 @@ void *realloc(void *ptr, uint64_t sz) {
   100212:	48 39 f0             	cmp    %rsi,%rax
   100215:	72 31                	jb     100248 <realloc+0x5d>
         // Split the block if it has excess space
-        if (b->size > aligned_size + sizeof(block)) {
+        if (b->size > aligned_size + BLOCKSIZE) {
   100217:	48 8d 56 18          	lea    0x18(%rsi),%rdx
             split_block(b, aligned_size);
         }
         return ptr; // Return the same pointer if resizing in place
   10021b:	49 89 dc             	mov    %rbx,%r12
-        if (b->size > aligned_size + sizeof(block)) {
+        if (b->size > aligned_size + BLOCKSIZE) {
   10021e:	48 39 d0             	cmp    %rdx,%rax
   100221:	76 49                	jbe    10026c <realloc+0x81>
-    block *b = (block*)((void*)ptr - sizeof(block)); // Get the block metadata
+    block *b = (block*)((void*)ptr - BLOCKSIZE); // Get the block metadata
   100223:	48 8d 7b e8          	lea    -0x18(%rbx),%rdi
             split_block(b, aligned_size);
   100227:	e8 de fe ff ff       	call   10010a <split_block>
@@ -431,7 +435,7 @@ void defrag() {
   100284:	c3                   	ret    
         if (b->free && b->next->free) {
             // Merge the current block with the next block
-            b->size += sizeof(block) + b->next->size;
+            b->size += BLOCKSIZE + b->next->size;
             b->next = b->next->next;  // Skip the next block after merging
   100285:	48 89 c2             	mov    %rax,%rdx
     while (b && b->next) {
@@ -443,7 +447,7 @@ void defrag() {
   100295:	74 ee                	je     100285 <defrag+0x11>
   100297:	83 78 10 00          	cmpl   $0x0,0x10(%rax)
   10029b:	74 e8                	je     100285 <defrag+0x11>
-            b->size += sizeof(block) + b->next->size;
+            b->size += BLOCKSIZE + b->next->size;
   10029d:	48 8b 32             	mov    (%rdx),%rsi
   1002a0:	48 8b 08             	mov    (%rax),%rcx
   1002a3:	48 8d 4c 0e 18       	lea    0x18(%rsi,%rcx,1),%rcx
@@ -466,7 +470,6 @@ void defrag() {
 int heap_info(heap_info_struct * info) {
   1002b9:	f3 0f 1e fa          	endbr64 
     return 0;
-}
   1002bd:	b8 00 00 00 00       	mov    $0x0,%eax
   1002c2:	c3                   	ret    
 
