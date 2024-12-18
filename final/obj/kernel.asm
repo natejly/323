@@ -1326,7 +1326,6 @@ case INT_PAGEFAULT:
                      addr, operation, problem, reg->reg_rip);
     }
 
-    // Check if the faulting address is within the process's heap
     if (addr >= current->original_break && addr < current->program_break) {
    40b28:	48 8b 05 d1 f3 00 00 	mov    0xf3d1(%rip),%rax        # 4ff00 <current>
    40b2f:	48 8b 40 10          	mov    0x10(%rax),%rax
@@ -1336,7 +1335,7 @@ case INT_PAGEFAULT:
    40b44:	48 8b 40 08          	mov    0x8(%rax),%rax
    40b48:	48 39 45 e8          	cmp    %rax,-0x18(%rbp)
    40b4c:	0f 83 89 00 00 00    	jae    40bdb <exception+0x3e6>
-        uintptr_t faulting_page = addr & ~(PAGESIZE - 1); // Align to page boundary
+        uintptr_t faulting_page = addr & ~(PAGESIZE - 1); 
    40b52:	48 8b 45 e8          	mov    -0x18(%rbp),%rax
    40b56:	48 25 00 f0 ff ff    	and    $0xfffffffffffff000,%rax
    40b5c:	48 89 45 d0          	mov    %rax,-0x30(%rbp)
@@ -1346,8 +1345,6 @@ case INT_PAGEFAULT:
    40b69:	89 c7                	mov    %eax,%edi
    40b6b:	e8 c2 29 00 00       	call   43532 <palloc>
    40b70:	48 89 45 c8          	mov    %rax,-0x38(%rbp)
-
-        // If physical page allocation fails, kill the process
         if (!pa || virtual_memory_map(current->p_pagetable, faulting_page, pa, PAGESIZE, PTE_P | PTE_W | PTE_U) < 0) {
    40b74:	48 83 7d c8 00       	cmpq   $0x0,-0x38(%rbp)
    40b79:	74 2d                	je     40ba8 <exception+0x3b3>
@@ -1371,8 +1368,6 @@ case INT_PAGEFAULT:
             break;
    40bc3:	e9 8d 00 00 00       	jmp    40c55 <exception+0x460>
         }
-
-        // Set the process state back to runnable and resume execution
         current->p_state = P_RUNNABLE;
    40bc8:	48 8b 05 31 f3 00 00 	mov    0xf331(%rip),%rax        # 4ff00 <current>
    40bcf:	c7 80 d8 00 00 00 01 	movl   $0x1,0xd8(%rax)
@@ -1518,7 +1513,7 @@ void run(proc* p) {
    40d1a:	74 1e                	je     40d3a <run+0x3d>
    40d1c:	48 8d 05 49 46 00 00 	lea    0x4649(%rip),%rax        # 4536c <memstate_colors+0x1ec>
    40d23:	48 89 c2             	mov    %rax,%rdx
-   40d26:	be b0 01 00 00       	mov    $0x1b0,%esi
+   40d26:	be ab 01 00 00       	mov    $0x1ab,%esi
    40d2b:	48 8d 05 b6 44 00 00 	lea    0x44b6(%rip),%rax        # 451e8 <memstate_colors+0x68>
    40d32:	48 89 c7             	mov    %rax,%rdi
    40d35:	e8 ac 1b 00 00       	call   428e6 <assert_fail>
@@ -1662,7 +1657,7 @@ void check_page_table_mappings(x86_64_pagetable* pt) {
    40e87:	74 1e                	je     40ea7 <check_page_table_mappings+0x44>
    40e89:	48 8d 05 f8 44 00 00 	lea    0x44f8(%rip),%rax        # 45388 <memstate_colors+0x208>
    40e90:	48 89 c2             	mov    %rax,%rdx
-   40e93:	be de 01 00 00       	mov    $0x1de,%esi
+   40e93:	be d9 01 00 00       	mov    $0x1d9,%esi
    40e98:	48 8d 05 49 43 00 00 	lea    0x4349(%rip),%rax        # 451e8 <memstate_colors+0x68>
    40e9f:	48 89 c7             	mov    %rax,%rdi
    40ea2:	e8 3f 1a 00 00       	call   428e6 <assert_fail>
@@ -1702,7 +1697,7 @@ void check_page_table_mappings(x86_64_pagetable* pt) {
    40f09:	74 1e                	je     40f29 <check_page_table_mappings+0xc6>
    40f0b:	48 8d 05 9f 44 00 00 	lea    0x449f(%rip),%rax        # 453b1 <memstate_colors+0x231>
    40f12:	48 89 c2             	mov    %rax,%rdx
-   40f15:	be e7 01 00 00       	mov    $0x1e7,%esi
+   40f15:	be e2 01 00 00       	mov    $0x1e2,%esi
    40f1a:	48 8d 05 c7 42 00 00 	lea    0x42c7(%rip),%rax        # 451e8 <memstate_colors+0x68>
    40f21:	48 89 c7             	mov    %rax,%rdi
    40f24:	e8 bd 19 00 00       	call   428e6 <assert_fail>
@@ -1718,7 +1713,7 @@ void check_page_table_mappings(x86_64_pagetable* pt) {
    40f41:	75 1e                	jne    40f61 <check_page_table_mappings+0xfe>
    40f43:	48 8d 05 74 44 00 00 	lea    0x4474(%rip),%rax        # 453be <memstate_colors+0x23e>
    40f4a:	48 89 c2             	mov    %rax,%rdx
-   40f4d:	be e9 01 00 00       	mov    $0x1e9,%esi
+   40f4d:	be e4 01 00 00       	mov    $0x1e4,%esi
    40f52:	48 8d 05 8f 42 00 00 	lea    0x428f(%rip),%rax        # 451e8 <memstate_colors+0x68>
    40f59:	48 89 c7             	mov    %rax,%rdi
    40f5c:	e8 85 19 00 00       	call   428e6 <assert_fail>
@@ -1749,7 +1744,7 @@ void check_page_table_mappings(x86_64_pagetable* pt) {
    40fa1:	74 1e                	je     40fc1 <check_page_table_mappings+0x15e>
    40fa3:	48 8d 05 25 44 00 00 	lea    0x4425(%rip),%rax        # 453cf <memstate_colors+0x24f>
    40faa:	48 89 c2             	mov    %rax,%rdx
-   40fad:	be f0 01 00 00       	mov    $0x1f0,%esi
+   40fad:	be eb 01 00 00       	mov    $0x1eb,%esi
    40fb2:	48 8d 05 2f 42 00 00 	lea    0x422f(%rip),%rax        # 451e8 <memstate_colors+0x68>
    40fb9:	48 89 c7             	mov    %rax,%rdi
    40fbc:	e8 25 19 00 00       	call   428e6 <assert_fail>
@@ -1761,7 +1756,7 @@ void check_page_table_mappings(x86_64_pagetable* pt) {
    40fcc:	75 1e                	jne    40fec <check_page_table_mappings+0x189>
    40fce:	48 8d 05 e9 43 00 00 	lea    0x43e9(%rip),%rax        # 453be <memstate_colors+0x23e>
    40fd5:	48 89 c2             	mov    %rax,%rdx
-   40fd8:	be f1 01 00 00       	mov    $0x1f1,%esi
+   40fd8:	be ec 01 00 00       	mov    $0x1ec,%esi
    40fdd:	48 8d 05 04 42 00 00 	lea    0x4204(%rip),%rax        # 451e8 <memstate_colors+0x68>
    40fe4:	48 89 c7             	mov    %rax,%rdi
    40fe7:	e8 fa 18 00 00       	call   428e6 <assert_fail>
@@ -1863,7 +1858,7 @@ static void check_page_table_ownership_level(x86_64_pagetable* pt, int level,
    410cd:	7e 1e                	jle    410ed <check_page_table_ownership_level+0x46>
    410cf:	48 8d 05 0a 43 00 00 	lea    0x430a(%rip),%rax        # 453e0 <memstate_colors+0x260>
    410d6:	48 89 c2             	mov    %rax,%rdx
-   410d9:	be 0e 02 00 00       	mov    $0x20e,%esi
+   410d9:	be 09 02 00 00       	mov    $0x209,%esi
    410de:	48 8d 05 03 41 00 00 	lea    0x4103(%rip),%rax        # 451e8 <memstate_colors+0x68>
    410e5:	48 89 c7             	mov    %rax,%rdi
    410e8:	e8 f9 17 00 00       	call   428e6 <assert_fail>
@@ -1879,7 +1874,7 @@ static void check_page_table_ownership_level(x86_64_pagetable* pt, int level,
    4110c:	74 1e                	je     4112c <check_page_table_ownership_level+0x85>
    4110e:	48 8d 05 e3 42 00 00 	lea    0x42e3(%rip),%rax        # 453f8 <memstate_colors+0x278>
    41115:	48 89 c2             	mov    %rax,%rdx
-   41118:	be 0f 02 00 00       	mov    $0x20f,%esi
+   41118:	be 0a 02 00 00       	mov    $0x20a,%esi
    4111d:	48 8d 05 c4 40 00 00 	lea    0x40c4(%rip),%rax        # 451e8 <memstate_colors+0x68>
    41124:	48 89 c7             	mov    %rax,%rdi
    41127:	e8 ba 17 00 00       	call   428e6 <assert_fail>
@@ -1895,7 +1890,7 @@ static void check_page_table_ownership_level(x86_64_pagetable* pt, int level,
    4114b:	74 1e                	je     4116b <check_page_table_ownership_level+0xc4>
    4114d:	48 8d 05 cc 42 00 00 	lea    0x42cc(%rip),%rax        # 45420 <memstate_colors+0x2a0>
    41154:	48 89 c2             	mov    %rax,%rdx
-   41157:	be 10 02 00 00       	mov    $0x210,%esi
+   41157:	be 0b 02 00 00       	mov    $0x20b,%esi
    4115c:	48 8d 05 85 40 00 00 	lea    0x4085(%rip),%rax        # 451e8 <memstate_colors+0x68>
    41163:	48 89 c7             	mov    %rax,%rdi
    41166:	e8 7b 17 00 00       	call   428e6 <assert_fail>
@@ -1959,7 +1954,7 @@ void check_virtual_memory(void) {
    411e3:	74 1e                	je     41203 <check_virtual_memory+0x34>
    411e5:	48 8d 05 64 42 00 00 	lea    0x4264(%rip),%rax        # 45450 <memstate_colors+0x2d0>
    411ec:	48 89 c2             	mov    %rax,%rdx
-   411ef:	be 23 02 00 00       	mov    $0x223,%esi
+   411ef:	be 1e 02 00 00       	mov    $0x21e,%esi
    411f4:	48 8d 05 ed 3f 00 00 	lea    0x3fed(%rip),%rax        # 451e8 <memstate_colors+0x68>
    411fb:	48 89 c7             	mov    %rax,%rdi
    411fe:	e8 e3 16 00 00       	call   428e6 <assert_fail>
@@ -2077,7 +2072,7 @@ void check_virtual_memory(void) {
    41363:	75 1e                	jne    41383 <check_virtual_memory+0x1b4>
    41365:	48 8d 05 04 41 00 00 	lea    0x4104(%rip),%rax        # 45470 <memstate_colors+0x2f0>
    4136c:	48 89 c2             	mov    %rax,%rdx
-   4136f:	be 3a 02 00 00       	mov    $0x23a,%esi
+   4136f:	be 35 02 00 00       	mov    $0x235,%esi
    41374:	48 8d 05 6d 3e 00 00 	lea    0x3e6d(%rip),%rax        # 451e8 <memstate_colors+0x68>
    4137b:	48 89 c7             	mov    %rax,%rdi
    4137e:	e8 63 15 00 00       	call   428e6 <assert_fail>
@@ -2250,7 +2245,7 @@ void memshow_virtual(x86_64_pagetable* pagetable, const char* name) {
    41522:	74 1e                	je     41542 <memshow_virtual+0x48>
    41524:	48 8d 05 8d 3f 00 00 	lea    0x3f8d(%rip),%rax        # 454b8 <memstate_colors+0x338>
    4152b:	48 89 c2             	mov    %rax,%rdx
-   4152e:	be 6b 02 00 00       	mov    $0x26b,%esi
+   4152e:	be 66 02 00 00       	mov    $0x266,%esi
    41533:	48 8d 05 ae 3c 00 00 	lea    0x3cae(%rip),%rax        # 451e8 <memstate_colors+0x68>
    4153a:	48 89 c7             	mov    %rax,%rdi
    4153d:	e8 a4 13 00 00       	call   428e6 <assert_fail>
@@ -2290,7 +2285,7 @@ void memshow_virtual(x86_64_pagetable* pagetable, const char* name) {
    415a7:	76 1e                	jbe    415c7 <memshow_virtual+0xcd>
    415a9:	48 8d 05 52 3f 00 00 	lea    0x3f52(%rip),%rax        # 45502 <memstate_colors+0x382>
    415b0:	48 89 c2             	mov    %rax,%rdx
-   415b3:	be 74 02 00 00       	mov    $0x274,%esi
+   415b3:	be 6f 02 00 00       	mov    $0x26f,%esi
    415b8:	48 8d 05 29 3c 00 00 	lea    0x3c29(%rip),%rax        # 451e8 <memstate_colors+0x68>
    415bf:	48 89 c7             	mov    %rax,%rdi
    415c2:	e8 1f 13 00 00       	call   428e6 <assert_fail>

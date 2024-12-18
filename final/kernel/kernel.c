@@ -364,19 +364,14 @@ case INT_PAGEFAULT:
                      addr, operation, problem, reg->reg_rip);
     }
 
-    // Check if the faulting address is within the process's heap
     if (addr >= current->original_break && addr < current->program_break) {
-        uintptr_t faulting_page = addr & ~(PAGESIZE - 1); // Align to page boundary
+        uintptr_t faulting_page = addr & ~(PAGESIZE - 1); 
         uintptr_t pa = (uintptr_t) palloc(current->p_pid);
-
-        // If physical page allocation fails, kill the process
         if (!pa || virtual_memory_map(current->p_pagetable, faulting_page, pa, PAGESIZE, PTE_P | PTE_W | PTE_U) < 0) {
             current->p_state = P_BROKEN;
             syscall_exit();
             break;
         }
-
-        // Set the process state back to runnable and resume execution
         current->p_state = P_RUNNABLE;
         break;
     }

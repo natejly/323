@@ -86,7 +86,7 @@ static inline void yield(void) {
     }
     }
 }
-
+int ptr_comparator1(const void *a, const void *b);
 int ptr_comparator1(const void *a, const void *b) {
   100077:	f3 0f 1e fa          	endbr64 
     ptr_with_size *a_ptr = (ptr_with_size *)a;
@@ -471,7 +471,7 @@ size_t algn(size_t size){
   1004ef:	c3                   	ret    
 
 00000000001004f0 <new_block>:
-
+// sbrk increment of size and return the new block
 block* new_block(size_t size){
   1004f0:	f3 0f 1e fa          	endbr64 
   1004f4:	48 89 fa             	mov    %rdi,%rdx
@@ -511,7 +511,7 @@ static inline void * sbrk(const intptr_t increment) {
   100528:	eb f5                	jmp    10051f <new_block+0x2f>
 
 000000000010052a <find_block>:
-
+// check free list to see if we have a block that can fit the size
 block* find_block(size_t size) {
   10052a:	f3 0f 1e fa          	endbr64 
     block* curr = free_head;
@@ -550,13 +550,14 @@ void add_to_free_list(block *b) {
         free_head = b;
         return;
     }
+    // add to head if smallest
     if (b < free_head) {
   100559:	48 39 f8             	cmp    %rdi,%rax
   10055c:	77 22                	ja     100580 <add_to_free_list+0x37>
-        b->next = free_head;
         free_head = b;
         return;
     }
+    // else insert in order
     block *curr = free_head;
     while (curr->next && curr->next < b) {
   10055e:	48 89 c2             	mov    %rax,%rdx
@@ -625,6 +626,7 @@ block* split_block(block* b, size_t size){
 
 void remove_from_free_list(block *b) {
   1005db:	f3 0f 1e fa          	endbr64 
+    // if is head
     if (free_head == b) {
   1005df:	48 8b 05 42 1a 00 00 	mov    0x1a42(%rip),%rax        # 102028 <free_head>
   1005e6:	48 39 f8             	cmp    %rdi,%rax
@@ -634,6 +636,7 @@ void remove_from_free_list(block *b) {
   1005ef:	48 89 05 32 1a 00 00 	mov    %rax,0x1a32(%rip)        # 102028 <free_head>
   1005f6:	eb 19                	jmp    100611 <remove_from_free_list+0x36>
     } else {
+        // itterate and merge
         block *curr = free_head;
         while (curr && curr->next != b) {
             curr = curr->next;
@@ -662,6 +665,7 @@ void remove_from_free_list(block *b) {
 0000000000100621 <add_to_malloc_list>:
 void add_to_malloc_list(block *b) {
   100621:	f3 0f 1e fa          	endbr64 
+    // add to head
     b->free = 0; 
   100625:	c7 47 10 00 00 00 00 	movl   $0x0,0x10(%rdi)
     b->next = malloc_head;
@@ -733,6 +737,7 @@ void free(void *firstbyte) {
   10069e:	48 8d 5f e8          	lea    -0x18(%rdi),%rbx
     num_allocs--;
   1006a2:	83 2d 67 19 00 00 01 	subl   $0x1,0x1967(%rip)        # 102010 <num_allocs>
+    // switch lists
     remove_from_malloc_list(b); 
   1006a9:	48 89 df             	mov    %rbx,%rdi
   1006ac:	e8 8e ff ff ff       	call   10063f <remove_from_malloc_list>
@@ -756,6 +761,7 @@ void *malloc(uint64_t numbytes) {
   1006ca:	4c 8d 67 07          	lea    0x7(%rdi),%r12
   1006ce:	49 83 e4 f8          	and    $0xfffffffffffffff8,%r12
     size_t size = algn(numbytes);
+    // check if we have a block that can fit
     block *b = find_block(size);
   1006d2:	4c 89 e7             	mov    %r12,%rdi
   1006d5:	e8 50 fe ff ff       	call   10052a <find_block>
@@ -763,11 +769,11 @@ void *malloc(uint64_t numbytes) {
     if (b == NULL) {
   1006dd:	48 85 c0             	test   %rax,%rax
   1006e0:	74 2d                	je     10070f <malloc+0x50>
-        b = new_block(size);
         if (b == NULL) {
             return NULL;
         }
     }
+
         remove_from_free_list(b);
   1006e2:	48 89 df             	mov    %rbx,%rdi
   1006e5:	e8 f1 fe ff ff       	call   1005db <remove_from_free_list>
@@ -856,11 +862,11 @@ void *realloc(void *ptr, uint64_t sz) {
     return (size + 7) / 8 * 8;
   100780:	48 8d 76 07          	lea    0x7(%rsi),%rsi
   100784:	48 83 e6 f8          	and    $0xfffffffffffffff8,%rsi
-        return NULL;
     }
+    // make sure to align the size
     block *b = (block*)((void*)ptr - BLOCKSIZE);
     size_t aligned_size = algn(sz);
-
+    // check if can fit in current block
     if (b->size >= aligned_size) {
   100788:	48 8b 43 e8          	mov    -0x18(%rbx),%rax
   10078c:	48 39 f0             	cmp    %rsi,%rax
@@ -925,7 +931,7 @@ void defrag() {
   1007f7:	48 83 ec 08          	sub    $0x8,%rsp
     block *b = free_head;
   1007fb:	48 8b 1d 26 18 00 00 	mov    0x1826(%rip),%rbx        # 102028 <free_head>
-
+    // merge free blocks that are next to each other
     while (b && b->next) { 
   100802:	48 85 db             	test   %rbx,%rbx
   100805:	74 33                	je     10083a <defrag+0x4c>
@@ -933,7 +939,6 @@ void defrag() {
   10080b:	48 85 ff             	test   %rdi,%rdi
   10080e:	74 2a                	je     10083a <defrag+0x4c>
         block *next = b->next;
-
         if ((char *)b + b->size + BLOCKSIZE == (char *)next) {
   100810:	48 8b 03             	mov    (%rbx),%rax
   100813:	48 83 c0 18          	add    $0x18,%rax
@@ -949,6 +954,7 @@ void defrag() {
             b->next = next->next; 
   10082b:	48 8b 47 08          	mov    0x8(%rdi),%rax
   10082f:	48 89 43 08          	mov    %rax,0x8(%rbx)
+            // remove 2nd one
             remove_from_free_list(next);
   100833:	e8 a3 fd ff ff       	call   1005db <remove_from_free_list>
   100838:	eb c8                	jmp    100802 <defrag+0x14>
@@ -976,17 +982,16 @@ void sort_ptr_with_size(void **ptr_array, long *size_array, int allocs) {
   100855:	49 89 fd             	mov    %rdi,%r13
   100858:	49 89 f6             	mov    %rsi,%r14
   10085b:	41 89 d4             	mov    %edx,%r12d
-    // Create an array of ptr_with_size structs
     ptr_with_size *combined_array = (ptr_with_size *)malloc(allocs * sizeof(ptr_with_size));
   10085e:	4c 63 fa             	movslq %edx,%r15
   100861:	4c 89 ff             	mov    %r15,%rdi
   100864:	48 c1 e7 04          	shl    $0x4,%rdi
   100868:	e8 52 fe ff ff       	call   1006bf <malloc>
-    if (!combined_array) return; // Handle allocation failure
+    if (!combined_array) return; 
   10086d:	48 85 c0             	test   %rax,%rax
   100870:	0f 84 99 00 00 00    	je     10090f <sort_ptr_with_size+0xcf>
   100876:	48 89 c3             	mov    %rax,%rbx
-    // manually remove
+    // janky way to avoid getting combined array in heapinfo stats
     block *b = (block *)((char *)combined_array - BLOCKSIZE);
   100879:	48 8d 40 e8          	lea    -0x18(%rax),%rax
   10087d:	48 89 45 c8          	mov    %rax,-0x38(%rbp)
@@ -1073,6 +1078,7 @@ int heap_info(heap_info_struct * info) {
   100947:	53                   	push   %rbx
   100948:	48 83 ec 08          	sub    $0x8,%rsp
   10094c:	49 89 fd             	mov    %rdi,%r13
+    // if no allocations
     if (num_allocs == 0) {
   10094f:	8b 05 bb 16 00 00    	mov    0x16bb(%rip),%eax        # 102010 <num_allocs>
   100955:	85 c0                	test   %eax,%eax

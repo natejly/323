@@ -31,9 +31,9 @@ typedef struct
 #define        POP(low, high)        ((void) (--top, (low = top->lo), (high = top->hi)))
 #define        STACK_NOT_EMPTY        (stack < top)
 typedef int (*__compar_fn_t) (const void *, const void *);
-
-void
-_quicksort1 (void *const pbase, size_t total_elems, size_t size,
+void _quicksort1 (void *const pbase, size_t total_elems, size_t size,
+            __compar_fn_t cmp);
+void _quicksort1 (void *const pbase, size_t total_elems, size_t size,
             __compar_fn_t cmp)
 {
     char *base_ptr = (char *) pbase;
@@ -169,7 +169,7 @@ jump_over:;
     }
     }
 }
-
+int ptr_comparator1(const void *a, const void *b);
 int ptr_comparator1(const void *a, const void *b) {
     ptr_with_size *a_ptr = (ptr_with_size *)a;
     ptr_with_size *b_ptr = (ptr_with_size *)b;
@@ -201,7 +201,7 @@ void remove_from_malloclist(block *b);
 size_t algn(size_t size){
     return (size + 7) / 8 * 8;
 }
-
+// sbrk increment of size and return the new block
 block* new_block(size_t size){
     void *bptr = sbrk(size + BLOCKSIZE);
     if (bptr == (void*) -1) {
@@ -213,7 +213,7 @@ block* new_block(size_t size){
     nblock->next = NULL;
     return nblock;
 }
-
+// check free list to see if we have a block that can fit the size
 block* find_block(size_t size) {
     block* curr = free_head;
     while (curr) {
@@ -224,7 +224,7 @@ block* find_block(size_t size) {
     }
     return NULL;
 }
-
+// if we have enough left room over split
 block* split_block(block* b, size_t size){
     if (b->size < size + BLOCKSIZE) {
         return NULL;
@@ -246,11 +246,13 @@ void add_to_free_list(block *b) {
         free_head = b;
         return;
     }
+    // add to head if smallest
     if (b < free_head) {
         b->next = free_head;
         free_head = b;
         return;
     }
+    // else insert in order
     block *curr = free_head;
     while (curr->next && curr->next < b) {
         curr = curr->next;
@@ -260,9 +262,11 @@ void add_to_free_list(block *b) {
 }
 
 void remove_from_free_list(block *b) {
+    // if is head
     if (free_head == b) {
         free_head = b->next;
     } else {
+        // itterate and merge
         block *curr = free_head;
         while (curr && curr->next != b) {
             curr = curr->next;
@@ -275,6 +279,7 @@ void remove_from_free_list(block *b) {
     b->next = NULL;
 }
 void add_to_malloc_list(block *b) {
+    // add to head
     b->free = 0; 
     b->next = malloc_head;
     malloc_head = b; 
@@ -303,19 +308,23 @@ void free(void *firstbyte) {
     block *b = (block *)((char *)firstbyte - BLOCKSIZE);
     if (b->free) return; 
     num_allocs--;
+    // switch lists
     remove_from_malloc_list(b); 
     add_to_free_list(b);
 }
 
 void *malloc(uint64_t numbytes) {
     size_t size = algn(numbytes);
+    // check if we have a block that can fit
     block *b = find_block(size);
     if (b == NULL) {
+        // if not then create a new block
         b = new_block(size);
         if (b == NULL) {
             return NULL;
         }
     }
+
         remove_from_free_list(b);
         if (b->size > size + BLOCKSIZE) {
             split_block(b, size);
@@ -342,9 +351,10 @@ void *realloc(void *ptr, uint64_t sz) {
         free(ptr);
         return NULL;
     }
+    // make sure to align the size
     block *b = (block*)((void*)ptr - BLOCKSIZE);
     size_t aligned_size = algn(sz);
-
+    // check if can fit in current block
     if (b->size >= aligned_size) {
         if (b->size > aligned_size + BLOCKSIZE) {
             split_block(b, aligned_size);
@@ -363,13 +373,13 @@ void *realloc(void *ptr, uint64_t sz) {
 
 void defrag() {
     block *b = free_head;
-
+    // merge free blocks that are next to each other
     while (b && b->next) { 
         block *next = b->next;
-
         if ((char *)b + b->size + BLOCKSIZE == (char *)next) {
             b->size += next->size + BLOCKSIZE;
             b->next = next->next; 
+            // remove 2nd one
             remove_from_free_list(next);
         } else {
             b = b->next;
@@ -378,10 +388,9 @@ void defrag() {
 }
 
 void sort_ptr_with_size(void **ptr_array, long *size_array, int allocs) {
-    // Create an array of ptr_with_size structs
     ptr_with_size *combined_array = (ptr_with_size *)malloc(allocs * sizeof(ptr_with_size));
-    if (!combined_array) return; // Handle allocation failure
-    // manually remove
+    if (!combined_array) return; 
+    // janky way to avoid getting combined array in heapinfo stats
     block *b = (block *)((char *)combined_array - BLOCKSIZE);
     remove_from_malloc_list(b);
     num_allocs--;
@@ -403,6 +412,7 @@ void sort_ptr_with_size(void **ptr_array, long *size_array, int allocs) {
 }
 
 int heap_info(heap_info_struct * info) {
+    // if no allocations
     if (num_allocs == 0) {
     info->size_array = NULL;
     info->ptr_array = NULL;
@@ -413,7 +423,6 @@ int heap_info(heap_info_struct * info) {
     info->num_allocs = num_allocs;
     long *size_array = (long*)malloc((num_allocs) * sizeof(long));
     void **ptr_array = (void**)malloc((num_allocs) * sizeof(void*));
-
     if (!size_array || !ptr_array) {
         return -1;
     }
@@ -427,9 +436,10 @@ int heap_info(heap_info_struct * info) {
         }
         bf = bf->next;
     }
-
+    // skip the first two blocks b/c are arrays
     block *bm = malloc_head->next->next;
     int x = 0;
+    // populate
     while (bm) {
         size_array[x] = bm->size;
         ptr_array[x] = (void*)((void*)bm + BLOCKSIZE);
@@ -451,8 +461,7 @@ int heap_info(heap_info_struct * info) {
     // }
 
     sort_ptr_with_size(ptr_array, size_array, num_allocs-2);
-    info->size_array = NULL;
-    info->ptr_array = NULL;
+
     info->size_array = size_array;
     info->ptr_array = ptr_array;
     info->free_space = (int)free_space;
