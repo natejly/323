@@ -226,7 +226,7 @@ block* find_block(size_t size) {
 }
 // if we have enough left room over split
 block* split_block(block* b, size_t size){
-    if (b->size < size + BLOCKSIZE) {
+    if (b->size < size + BLOCKSIZE + BLOCKSIZE) {
         return NULL;
     }
     void* nptr = (void*)b + BLOCKSIZE + size;
@@ -302,7 +302,7 @@ void remove_from_malloc_list(block *b) {
 }
 
 void free(void *firstbyte) {
-    if (!firstbyte) {
+    if (firstbyte == NULL) {
         return;
     }
     block *b = (block *)((char *)firstbyte - BLOCKSIZE);
@@ -314,6 +314,9 @@ void free(void *firstbyte) {
 }
 
 void *malloc(uint64_t numbytes) {
+    if (numbytes == 0) {
+        return NULL;
+    }
     size_t size = algn(numbytes);
     // check if we have a block that can fit
     block *b = find_block(size);
@@ -324,7 +327,6 @@ void *malloc(uint64_t numbytes) {
             return NULL;
         }
     }
-
         remove_from_free_list(b);
         if (b->size > size + BLOCKSIZE) {
             split_block(b, size);
@@ -347,7 +349,7 @@ void *realloc(void *ptr, uint64_t sz) {
     if (ptr == NULL) {
         return malloc(sz);
     }
-    if (sz == 0) {
+    if (sz == 0 && ptr != NULL) {
         free(ptr);
         return NULL;
     }
@@ -424,6 +426,8 @@ int heap_info(heap_info_struct * info) {
     long *size_array = (long*)malloc((num_allocs) * sizeof(long));
     void **ptr_array = (void**)malloc((num_allocs) * sizeof(void*));
     if (!size_array || !ptr_array) {
+        free(size_array);
+        free(ptr_array);
         return -1;
     }
     block *bf = free_head;
@@ -465,6 +469,6 @@ int heap_info(heap_info_struct * info) {
     info->size_array = size_array;
     info->ptr_array = ptr_array;
     info->free_space = (int)free_space;
-    info->largest_free_chunk = (int)largest_free_chunk;
+    info->largest_free_chunk = (int)largest_free_chunk + BLOCKSIZE;
     return 0;
 }

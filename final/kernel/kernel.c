@@ -158,9 +158,8 @@ int syscall_page_alloc(uintptr_t addr) {
 }
 
 int syscall_brk(proc* p, uintptr_t new_brk) {
-    // Validate that new_brk is within the allowable range
     if (new_brk < p->original_break || new_brk >= MEMSIZE_VIRTUAL - PAGESIZE) {
-        return -1;  // Error: break below heap start or beyond stack
+        return -1;  
     }
 
     uintptr_t old_brk = p->program_break;
@@ -179,7 +178,9 @@ int syscall_brk(proc* p, uintptr_t new_brk) {
         for (uintptr_t addr = ROUNDUP(new_brk, PAGESIZE); addr < ROUNDUP(old_brk, PAGESIZE); addr += PAGESIZE) {
             vamapping map = virtual_memory_lookup(p->p_pagetable, addr);
             if (map.pn >= 0) {
-                virtual_memory_map(p->p_pagetable, addr, 0, PAGESIZE, 0);
+                if(virtual_memory_map(p->p_pagetable, addr, 0, PAGESIZE, 0) < 0){
+                    return -1;
+                }
                 pageinfo[map.pn].refcount = 0;
                 pageinfo[map.pn].owner = PO_FREE;
             }
